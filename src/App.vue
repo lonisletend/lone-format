@@ -1,0 +1,325 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import DemoFormat from './components/DemoFormat/index.vue'
+import JsonFormat from './components/JsonFormat/index.vue'
+import type { Action } from './types'
+
+const basicActions = ref<Action[]>([
+  { label: 'Save', type: 'primary', handler: () => alert('Saved!') },
+  { label: 'Cancel', type: 'default', handler: () => alert('Cancelled!') }
+])
+
+const advancedActions = ref<Action[]>([
+  { label: 'Approve', type: 'success', handler: () => alert('Approved!') },
+  { label: 'Reject', type: 'danger', handler: () => alert('Rejected!') },
+  { label: 'Edit', type: 'warning', handler: () => alert('Editing...') }
+])
+
+const handleAction = (action: Action) => {
+  console.log('Action clicked:', action)
+}
+
+// JsonFormat 示例数据
+const sampleJson = ref(`{
+  "name": "Lone Format Library",
+  "version": "0.1.0",
+  "description": "A Vue 3 component library for formatting",
+  "bignumber": 12345678901234567890,
+  "features": [
+    "Tree-shaking support",
+    "TypeScript support",
+    "Vue 3 Composition API",
+    "VitePress documentation"
+  ],
+  "config": {
+    "build": {
+      "target": "es2015",
+      "minify": true
+    },
+    "dev": {
+      "port": 3000,
+      "open": true
+    }
+  },
+  "stats": {
+    "downloads": 12345678901234567890,
+    "stars": 1234,
+    "forks": 56,
+    "contributors": 8
+  },
+  "metadata": {
+    "created": "2024-01-01T00:00:00.000Z",
+    "updated": "2024-07-23T12:00:00.000Z",
+    "active": true,
+    "deprecated": false,
+    "author": null
+  }
+}`)
+
+const complexJson = ref(`{
+  "users": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "profile": {
+        "age": 30,
+        "address": {
+          "street": "123 Main St",
+          "city": "New York",
+          "country": "USA"
+        },
+        "preferences": {
+          "theme": "dark",
+          "notifications": true,
+          "languages": ["en", "es", "fr"]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Jane Smith",
+      "email": "jane@example.com",
+      "profile": {
+        "age": 25,
+        "address": {
+          "street": "456 Oak Ave",
+          "city": "Los Angeles",
+          "country": "USA"
+        },
+        "preferences": {
+          "theme": "light",
+          "notifications": false,
+          "languages": ["en", "zh"]
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 2,
+    "hasNext": false
+  }
+}`)
+
+const invalidJson = ref(`{
+  "name": "Invalid JSON",
+  "missing": quote,
+  "extra": "comma",
+}`)
+</script>
+
+<template>
+  <div class="app">
+    <header class="app-header">
+      <h1>🎨 Lone Format Component Library</h1>
+      <p>A Vue 3 component library demo with tree-shaking support</p>
+    </header>
+
+    <main class="app-main">
+      <!-- DemoFormat 组件演示 -->
+      <section class="demo-section">
+        <h2>🎯 Demo Format Component</h2>
+        <div class="component-grid">
+          <div class="component-item">
+            <h3>Basic Usage</h3>
+            <DemoFormat title="Welcome to Lone Format"
+              content="This is a basic demo format component showcasing the default styling and functionality."
+              badge="Demo" type="info" :actions="basicActions" @action="handleAction" />
+          </div>
+
+          <div class="component-item">
+            <h3>Success Type with Actions</h3>
+            <DemoFormat title="Success Format"
+              content="This example demonstrates the success type with multiple action buttons." badge="Success"
+              type="success" :actions="advancedActions" @action="handleAction" />
+          </div>
+        </div>
+      </section>
+
+      <!-- JsonFormat 组件演示 -->
+      <section class="demo-section">
+        <h2>🔧 JSON Format Component</h2>
+
+        <div class="component-item">
+          <h3>Sample JSON with Large Numbers</h3>
+          <p class="description">
+            This example shows JSON formatting with large numbers (handled by json-bigint),
+            nested objects, arrays, and different data types. Click on brackets to expand/collapse,
+            and click on values to edit them.
+          </p>
+          <JsonFormat v-model="sampleJson" />
+        </div>
+
+        <div class="component-item">
+          <h3>Complex Nested Structure</h3>
+          <p class="description">
+            A more complex example with deeply nested objects and arrays.
+            Test the collapsible functionality and value editing.
+          </p>
+          <JsonFormat v-model="complexJson" />
+        </div>
+
+        <div class="component-item">
+          <h3>Invalid JSON Example</h3>
+          <p class="description">
+            This example shows how the component handles invalid JSON with proper error display.
+          </p>
+          <JsonFormat v-model="invalidJson" />
+        </div>
+      </section>
+
+      <!-- 自定义内容示例 -->
+      <section class="demo-section">
+        <h2>🎨 Custom Content</h2>
+        <DemoFormat title="Custom Content Example" badge="Custom" type="warning"
+          :actions="[{ label: 'Acknowledge', type: 'warning' }]" @action="handleAction">
+          <div class="custom-content">
+            <p><strong>Custom Content:</strong> You can use slots to insert any content here!</p>
+            <ul>
+              <li>✅ Lists</li>
+              <li>🖼️ Images</li>
+              <li>🧩 Other Vue components</li>
+              <li>📝 Rich text content</li>
+            </ul>
+          </div>
+        </DemoFormat>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Built with ❤️ using Vue 3, TypeScript, and Vite</p>
+    </footer>
+  </div>
+</template>
+
+<style scoped>
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 40px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+}
+
+.app-header h1 {
+  margin: 0 0 16px 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.app-header p {
+  margin: 0;
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.demo-section {
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.demo-section h2 {
+  margin: 0 0 24px 0;
+  color: #333;
+  font-size: 1.8rem;
+  font-weight: 600;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 8px;
+}
+
+.component-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+}
+
+.component-item {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.component-item h3 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.description {
+  margin: 0 0 16px 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
+}
+
+.custom-content {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid #ff9800;
+}
+
+.custom-content ul {
+  margin: 12px 0 0 0;
+  padding-left: 20px;
+}
+
+.custom-content li {
+  margin: 8px 0;
+}
+
+.app-footer {
+  text-align: center;
+  margin-top: 40px;
+  padding: 20px;
+  color: #666;
+  border-top: 1px solid #e9ecef;
+}
+
+@media (max-width: 768px) {
+  .app {
+    padding: 16px;
+  }
+
+  .app-header h1 {
+    font-size: 2rem;
+  }
+
+  .demo-section {
+    padding: 16px;
+  }
+
+  .component-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .component-item {
+    padding: 16px;
+  }
+}
+</style>
