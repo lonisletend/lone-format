@@ -19,33 +19,65 @@ const handleAction = (action: Action) => {
   console.log('Action clicked:', action)
 }
 
-// JsonFormat 示例数据
+// JsonFormat 示例数据 - 大型 JSON 测试性能
 const sampleJson = ref(`{
-  "name": "Lone Format Library",
+  "name": "Lone Format Library - Performance Test",
   "version": "0.1.0",
-  "description": "A Vue 3 component library for formatting",
+  "description": "A Vue 3 component library for formatting with performance optimization",
   "bignumber": 12345678901234567890,
   "features": [
     "Tree-shaking support",
-    "TypeScript support",
+    "TypeScript support", 
     "Vue 3 Composition API",
-    "VitePress documentation"
+    "VitePress documentation",
+    "Performance optimized key editing",
+    "Shallow copy for better performance"
   ],
   "config": {
     "build": {
       "target": "es2015",
-      "minify": true
+      "minify": true,
+      "bundle": true
     },
     "dev": {
       "port": 3000,
-      "open": true
+      "open": true,
+      "hot": true
+    },
+    "performance": {
+      "shallowCopy": true,
+      "optimizedKeyRename": true,
+      "lazyLoading": false
     }
   },
   "stats": {
     "downloads": 12345678901234567890,
     "stars": 1234,
     "forks": 56,
-    "contributors": 8
+    "contributors": 8,
+    "issues": 12,
+    "pullRequests": 3
+  },
+  "largeDataset": {
+    "users": {
+      "user1": { "id": 1, "name": "Alice", "email": "alice@example.com", "role": "admin", "lastLogin": "2024-01-15T10:30:00Z" },
+      "user2": { "id": 2, "name": "Bob", "email": "bob@example.com", "role": "user", "lastLogin": "2024-01-14T15:45:00Z" },
+      "user3": { "id": 3, "name": "Charlie", "email": "charlie@example.com", "role": "moderator", "lastLogin": "2024-01-13T09:20:00Z" },
+      "user4": { "id": 4, "name": "Diana", "email": "diana@example.com", "role": "user", "lastLogin": "2024-01-12T14:10:00Z" },
+      "user5": { "id": 5, "name": "Eve", "email": "eve@example.com", "role": "admin", "lastLogin": "2024-01-11T11:55:00Z" }
+    },
+    "products": {
+      "product1": { "id": "p1", "name": "Widget A", "price": 29.99, "category": "electronics", "stock": 100 },
+      "product2": { "id": "p2", "name": "Gadget B", "price": 49.99, "category": "electronics", "stock": 50 },
+      "product3": { "id": "p3", "name": "Tool C", "price": 19.99, "category": "hardware", "stock": 200 },
+      "product4": { "id": "p4", "name": "Device D", "price": 99.99, "category": "electronics", "stock": 25 },
+      "product5": { "id": "p5", "name": "Component E", "price": 15.99, "category": "parts", "stock": 300 }
+    },
+    "orders": {
+      "order1": { "id": "o1", "userId": 1, "products": ["p1", "p3"], "total": 49.98, "status": "completed" },
+      "order2": { "id": "o2", "userId": 2, "products": ["p2"], "total": 49.99, "status": "pending" },
+      "order3": { "id": "o3", "userId": 3, "products": ["p4", "p5"], "total": 115.98, "status": "shipped" }
+    }
   },
   "metadata": {
     "created": "2024-01-01T00:00:00.000Z",

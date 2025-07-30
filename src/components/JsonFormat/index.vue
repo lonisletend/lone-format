@@ -116,12 +116,14 @@ const updateValue = (path: string, newValue: any) => {
   }
 }
 
-// 根据路径更新 JSON 对象
+// 根据路径更新 JSON 对象（性能优化版本）
 const updateJsonByPath = (obj: any, path: string, value: any): any => {
   if (!path || path === 'root') return value
 
   const keys = path.split('.')
-  const result = JSON.parse(JSON.stringify(obj)) // 深拷贝
+
+  // 使用浅拷贝而不是深拷贝，只有修改路径上的对象才需要拷贝
+  const result = shallowCopyToPath(obj, keys.slice(0, -1))
 
   let current = result
   for (let i = 0; i < keys.length - 1; i++) {
@@ -251,20 +253,20 @@ const updateKey = (oldPath: string, newKey: string) => {
   }
 }
 
-// 重命名 JSON 对象中的键
+// 重命名 JSON 对象中的键（性能优化版本）
 const renameJsonKey = (obj: any, path: string, newKey: string): any => {
   if (!path || path === 'root') return obj
 
   const keys = path.split('.')
-  const result = JSON.parse(JSON.stringify(obj)) // 深拷贝
+
+  // 使用浅拷贝而不是深拷贝，只有修改的路径上的对象才需要拷贝
+  const result = shallowCopyToPath(obj, keys.slice(0, -1))
 
   // 如果只有一个键，说明是根级别的操作
   if (keys.length === 1) {
     const oldKey = keys[0]
     if (result && typeof result === 'object' && !Array.isArray(result)) {
-      const value = result[oldKey]
-      delete result[oldKey]
-      result[newKey] = value
+      return reorderObjectKeys(result, oldKey, newKey)
     }
     return result
   }
@@ -285,12 +287,84 @@ const renameJsonKey = (obj: any, path: string, newKey: string): any => {
 
   // 重命名键
   if (!Array.isArray(parent) && parent && typeof parent === 'object') {
-    const value = parent[oldKey]
-    delete parent[oldKey]
-    parent[newKey] = value
+    const newParent = reorderObjectKeys(parent, oldKey, newKey)
+
+    // 只替换父对象，而不是重建整个结构
+    const parentKeys = keys.slice(0, -1)
+    if (parentKeys.length > 0) {
+      replaceObjectAtPath(result, parentKeys, newParent)
+    }
   }
 
   return result
+}
+
+// 浅拷贝到指定路径的对象
+const shallowCopyToPath = (obj: any, pathKeys: string[]): any => {
+  if (pathKeys.length === 0) return obj
+
+  if (Array.isArray(obj)) {
+    const newArray = [...obj]
+    const key = pathKeys[0]
+    const index = parseInt(key)
+    if (pathKeys.length === 1) {
+      return newArray
+    }
+    newArray[index] = shallowCopyToPath(obj[index], pathKeys.slice(1))
+    return newArray
+  } else if (obj && typeof obj === 'object') {
+    const newObj = { ...obj }
+    const key = pathKeys[0]
+    if (pathKeys.length === 1) {
+      return newObj
+    }
+    newObj[key] = shallowCopyToPath(obj[key], pathKeys.slice(1))
+    return newObj
+  }
+
+  return obj
+}
+
+// 高效地重新排序对象键
+const reorderObjectKeys = (obj: any, oldKey: string, newKey: string): any => {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return obj
+  }
+
+  // 使用 Object.keys() 获取键的顺序，然后重新构建对象
+  const keys = Object.keys(obj)
+  const newObj: any = {}
+
+  for (const key of keys) {
+    if (key === oldKey) {
+      newObj[newKey] = obj[key]
+    } else {
+      newObj[key] = obj[key]
+    }
+  }
+
+  return newObj
+}
+
+// 在指定路径替换对象
+const replaceObjectAtPath = (obj: any, pathKeys: string[], newValue: any): void => {
+  let current = obj
+
+  for (let i = 0; i < pathKeys.length - 1; i++) {
+    const key = pathKeys[i]
+    if (Array.isArray(current)) {
+      current = current[parseInt(key)]
+    } else {
+      current = current[key]
+    }
+  }
+
+  const lastKey = pathKeys[pathKeys.length - 1]
+  if (Array.isArray(current)) {
+    current[parseInt(lastKey)] = newValue
+  } else {
+    current[lastKey] = newValue
+  }
 }
 
 // 更新展开状态中的路径
