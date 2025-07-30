@@ -1,6 +1,7 @@
 <template>
   <div class="json-format">
-    <div class="json-format__toolbar">
+    <!-- 可选的工具栏 -->
+    <div v-if="showToolbar" class="json-format__toolbar">
       <div class="json-format__actions">
         <button class="json-format__btn json-format__btn--primary" @click="copyJson" :disabled="!isValidJson"
           title="Copy JSON">
@@ -54,16 +55,22 @@ interface Props {
   modelValue: string
   readonly?: boolean
   maxDepth?: number
+  showToolbar?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   readonly: false,
-  maxDepth: 10
+  maxDepth: 10,
+  showToolbar: true
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'copy-success': [value: string]
+  'copy-error': [error: Error]
+  'expand-all': []
+  'collapse-all': []
 }>()
 
 // 响应式数据
@@ -180,11 +187,13 @@ const expandAll = () => {
 
   collectPaths(parsedJson.value)
   expandedNodes.value = allPaths
+  emit('expand-all')
 }
 
 // 全部折叠
 const collapseAll = () => {
   expandedNodes.value = new Set(['root'])
+  emit('collapse-all')
 }
 
 // 复制 JSON
@@ -199,9 +208,10 @@ const copyJson = async () => {
     const fixedJson = formattedJson.replace(/"(\d{16,})"/g, '$1')
 
     await navigator.clipboard.writeText(fixedJson)
-    // 这里可以添加一个成功提示
+    emit('copy-success', fixedJson)
   } catch (error) {
     console.error('Failed to copy JSON:', error)
+    emit('copy-error', error instanceof Error ? error : new Error('Failed to copy JSON'))
   }
 }
 
@@ -396,6 +406,27 @@ const updateExpandedPaths = (oldPath: string, newKey: string) => {
 // 设置组件名称
 defineOptions({
   name: 'JsonFormat'
+})
+
+// 暴露方法给父组件调用
+defineExpose({
+  // 核心操作方法
+  copyJson,
+  expandAll,
+  collapseAll,
+  toggleExpand,
+  updateValue,
+  updateKey,
+
+  // 状态访问方法
+  isValidJson: () => isValidJson.value,
+  getParsedJson: () => parsedJson.value,
+  getExpandedNodes: () => expandedNodes.value,
+  getParseError: () => parseError.value,
+
+  // 工具方法
+  parseJson: (jsonString: string) => parseJson(jsonString),
+  copyValue: (value: any) => copyValue(value)
 })
 </script>
 

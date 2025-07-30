@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import DemoFormat from './components/DemoFormat/index.vue'
 import JsonFormat from './components/JsonFormat/index.vue'
 import type { Action } from './types'
+import type { JsonFormatExposed } from './components/JsonFormat/types'
 
 const basicActions = ref<Action[]>([
   { label: 'Save', type: 'primary', handler: () => alert('Saved!') },
@@ -17,6 +18,80 @@ const advancedActions = ref<Action[]>([
 
 const handleAction = (action: Action) => {
   console.log('Action clicked:', action)
+}
+
+// JsonFormat 组件引用
+const jsonFormatRef = ref<JsonFormatExposed>()
+const customJsonFormatRef = ref<JsonFormatExposed>()
+const complexJsonFormatRef = ref<JsonFormatExposed>()
+
+// 操作反馈消息
+const message = ref('')
+const messageType = ref<'success' | 'error' | 'info'>('info')
+
+// 自定义按钮操作 - Custom Control Example 区块
+const handleCustomCopy = async () => {
+  try {
+    await customJsonFormatRef.value?.copyJson()
+    showMessage('自定义 JSON 已复制到剪贴板！', 'success')
+  } catch (error) {
+    showMessage('复制失败', 'error')
+  }
+}
+
+const handleCustomExpandAll = () => {
+  customJsonFormatRef.value?.expandAll()
+  showMessage('自定义控制：已展开所有节点', 'info')
+}
+
+const handleCustomCollapseAll = () => {
+  customJsonFormatRef.value?.collapseAll()
+  showMessage('自定义控制：已折叠所有节点', 'info')
+}
+
+const checkCustomJsonStatus = () => {
+  const isValid = customJsonFormatRef.value?.isValidJson()
+  const errorMsg = customJsonFormatRef.value?.getParseError()
+  if (isValid) {
+    showMessage('自定义 JSON 格式正确', 'success')
+  } else {
+    showMessage(`自定义 JSON 格式错误: ${errorMsg}`, 'error')
+  }
+}
+
+// Complex Nested Structure 区块的操作
+const handleComplexCopy = async () => {
+  try {
+    await complexJsonFormatRef.value?.copyJson()
+    showMessage('复杂 JSON 已复制！', 'success')
+  } catch (error) {
+    showMessage('复制失败', 'error')
+  }
+}
+
+const showMessage = (msg: string, type: 'success' | 'error' | 'info') => {
+  message.value = msg
+  messageType.value = type
+  setTimeout(() => {
+    message.value = ''
+  }, 3000)
+}
+
+// 事件处理
+const onCopySuccess = (value: string) => {
+  showMessage(`已复制 ${value.length} 个字符到剪贴板`, 'success')
+}
+
+const onCopyError = (error: Error) => {
+  showMessage(`复制失败: ${error.message}`, 'error')
+}
+
+const onExpandAll = () => {
+  showMessage('所有节点已展开', 'info')
+}
+
+const onCollapseAll = () => {
+  showMessage('所有节点已折叠', 'info')
 }
 
 // JsonFormat 示例数据 - 大型 JSON 测试性能
@@ -174,6 +249,11 @@ const invalidJson = ref(`{
       <section class="demo-section">
         <h2>🔧 JSON Format Component</h2>
 
+        <!-- 消息提示 -->
+        <div v-if="message" :class="['message', `message--${messageType}`]">
+          {{ message }}
+        </div>
+
         <div class="component-item">
           <h3>Sample JSON with Large Numbers</h3>
           <p class="description">
@@ -181,7 +261,36 @@ const invalidJson = ref(`{
             nested objects, arrays, and different data types. Click on brackets to expand/collapse,
             and click on values to edit them.
           </p>
-          <JsonFormat v-model="sampleJson" />
+          <JsonFormat ref="jsonFormatRef" v-model="sampleJson" @copy-success="onCopySuccess" @copy-error="onCopyError"
+            @expand-all="onExpandAll" @collapse-all="onCollapseAll" />
+        </div>
+
+        <div class="component-item">
+          <h3>🎛️ Custom Control Example</h3>
+          <p class="description">
+            这个示例展示了如何使用自定义按钮控制 JsonFormat 组件。
+            工具栏被隐藏，所有功能通过外部按钮控制。
+          </p>
+
+          <!-- 自定义控制按钮 -->
+          <div class="custom-controls">
+            <button @click="handleCustomCopy" class="custom-btn custom-btn--primary">
+              📋 自定义复制
+            </button>
+            <button @click="handleCustomExpandAll" class="custom-btn custom-btn--success">
+              📖 展开全部
+            </button>
+            <button @click="handleCustomCollapseAll" class="custom-btn custom-btn--warning">
+              📕 折叠全部
+            </button>
+            <button @click="checkCustomJsonStatus" class="custom-btn custom-btn--info">
+              🔍 检查状态
+            </button>
+          </div>
+
+          <!-- 无工具栏的 JsonFormat -->
+          <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" @copy-success="onCopySuccess"
+            @copy-error="onCopyError" @expand-all="onExpandAll" @collapse-all="onCollapseAll" />
         </div>
 
         <div class="component-item">
@@ -190,7 +299,14 @@ const invalidJson = ref(`{
             A more complex example with deeply nested objects and arrays.
             Test the collapsible functionality and value editing.
           </p>
-          <JsonFormat v-model="complexJson" />
+          <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" />
+
+          <!-- 另一组自定义按钮 -->
+          <div class="custom-controls" style="margin-top: 16px;">
+            <button @click="handleComplexCopy" class="custom-btn custom-btn--secondary">
+              📄 复制复杂 JSON
+            </button>
+          </div>
         </div>
 
         <div class="component-item">
@@ -352,6 +468,114 @@ const invalidJson = ref(`{
 
   .component-item {
     padding: 16px;
+  }
+}
+
+/* 消息提示样式 */
+.message {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease;
+}
+
+.message--success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.message--error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.message--info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* 自定义控制按钮样式 */
+.custom-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.custom-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.custom-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.custom-btn--primary {
+  background: #007bff;
+  color: white;
+}
+
+.custom-btn--primary:hover {
+  background: #0056b3;
+}
+
+.custom-btn--success {
+  background: #28a745;
+  color: white;
+}
+
+.custom-btn--success:hover {
+  background: #1e7e34;
+}
+
+.custom-btn--warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.custom-btn--warning:hover {
+  background: #e0a800;
+}
+
+.custom-btn--info {
+  background: #17a2b8;
+  color: white;
+}
+
+.custom-btn--info:hover {
+  background: #138496;
+}
+
+.custom-btn--secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.custom-btn--secondary:hover {
+  background: #545b62;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
