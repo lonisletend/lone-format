@@ -33,7 +33,7 @@
 
       <div v-else class="json-format__viewer">
         <JsonNode :value="parsedJson" :key-name="''" :level="0" :expanded="expandedNodes" :is-last="true"
-          @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue" />
+          @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue" @update:key="updateKey" />
       </div>
     </div>
   </div>
@@ -233,6 +233,90 @@ const copyValue = async (value: any) => {
   } catch (error) {
     console.error('Failed to copy value:', error)
   }
+}
+
+// 更新键名
+const updateKey = (oldPath: string, newKey: string) => {
+  if (props.readonly) return
+
+  try {
+    const updatedJson = renameJsonKey(parsedJson.value, oldPath, newKey)
+    const jsonString = JSONBig.stringify(updatedJson, null, 2)
+    emit('update:modelValue', jsonString)
+
+    // 更新展开状态中的路径
+    updateExpandedPaths(oldPath, newKey)
+  } catch (error) {
+    console.error('Failed to rename key:', error)
+  }
+}
+
+// 重命名 JSON 对象中的键
+const renameJsonKey = (obj: any, path: string, newKey: string): any => {
+  if (!path || path === 'root') return obj
+
+  const keys = path.split('.')
+  const result = JSON.parse(JSON.stringify(obj)) // 深拷贝
+
+  // 如果只有一个键，说明是根级别的操作
+  if (keys.length === 1) {
+    const oldKey = keys[0]
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      const value = result[oldKey]
+      delete result[oldKey]
+      result[newKey] = value
+    }
+    return result
+  }
+
+  // 找到父对象
+  let parent = result
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i]
+
+    if (Array.isArray(parent)) {
+      parent = parent[parseInt(key)]
+    } else {
+      parent = parent[key]
+    }
+  }
+
+  const oldKey = keys[keys.length - 1]
+
+  // 重命名键
+  if (!Array.isArray(parent) && parent && typeof parent === 'object') {
+    const value = parent[oldKey]
+    delete parent[oldKey]
+    parent[newKey] = value
+  }
+
+  return result
+}
+
+// 更新展开状态中的路径
+const updateExpandedPaths = (oldPath: string, newKey: string) => {
+  const newExpandedNodes = new Set<string>()
+
+  expandedNodes.value.forEach(path => {
+    if (path === oldPath) {
+      // 替换当前路径
+      const pathParts = oldPath.split('.')
+      pathParts[pathParts.length - 1] = newKey
+      newExpandedNodes.add(pathParts.join('.'))
+    } else if (path.startsWith(oldPath + '.')) {
+      // 替换子路径
+      const pathParts = oldPath.split('.')
+      pathParts[pathParts.length - 1] = newKey
+      const newBasePath = pathParts.join('.')
+      const suffix = path.substring(oldPath.length)
+      newExpandedNodes.add(newBasePath + suffix)
+    } else {
+      // 保持原路径
+      newExpandedNodes.add(path)
+    }
+  })
+
+  expandedNodes.value = newExpandedNodes
 }
 
 // 设置组件名称

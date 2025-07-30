@@ -3,9 +3,11 @@
     <!-- 对象或数组 -->
     <div v-if="isObjectOrArray" class="json-node__container">
       <div class="json-node__line">
-        <span v-if="keyName" class="json-node__key" @click="editKey" :title="'Click to edit key'">
+        <span v-if="keyName && !isEditingKey" class="json-node__key" @click="editKey" :title="'Click to edit key'">
           "{{ displayKey }}"
         </span>
+        <input v-if="keyName && isEditingKey" v-model="editingKeyValue" @keyup.enter="saveKeyEdit"
+          @keyup.escape="cancelKeyEdit" @blur="saveKeyEdit" class="json-node__key-input" />
         <span v-if="keyName" class="json-node__colon">: </span>
 
         <span class="json-node__bracket json-node__bracket--clickable" @click="toggleCollapse"
@@ -28,6 +30,7 @@
             :path="childPath(String(childKey))" :expanded="expanded"
             @update:value="(path, newValue) => $emit('update:value', path, newValue)"
             @toggle-expand="(path) => $emit('toggle-expand', path)" @copy="(value) => $emit('copy', value)"
+            @update:key="(oldPath, newKey) => $emit('update:key', oldPath, newKey)"
             :is-last="isLastItem(String(childKey))" />
         </div>
 
@@ -79,6 +82,7 @@ const emit = defineEmits<{
   'update:value': [path: string, value: any]
   'toggle-expand': [path: string]
   'copy': [value: any]
+  'update:key': [oldPath: string, newKey: string]
 }>()
 
 // 编辑状态
@@ -119,7 +123,7 @@ const isExpanded = computed(() => {
 })
 
 const displayKey = computed(() => {
-  return isEditingKey.value ? editingKeyValue.value : props.keyName
+  return props.keyName
 })
 
 const openBracket = computed(() => isArray.value ? '[' : '{')
@@ -239,9 +243,30 @@ const editValue = () => {
 }
 
 const saveKeyEdit = () => {
-  // 这里需要实现重命名 key 的逻辑
-  // 暂时先取消编辑
+  if (props.level === 0) return // 根节点不允许编辑 key
+  if (!isEditingKey.value) return // 如果不在编辑状态，直接返回
+
+  const newKey = editingKeyValue.value.trim()
+
+  // 检查新 key 是否有效
+  if (!newKey) {
+    // 如果新 key 为空，取消编辑
+    cancelKeyEdit()
+    return
+  }
+
+  // 检查新 key 是否与原 key 相同
+  if (newKey === props.keyName) {
+    // 如果没有变化，直接取消编辑
+    isEditingKey.value = false
+    return
+  }
+
+  // 先设置编辑状态为 false，防止重复触发
   isEditingKey.value = false
+
+  // 发送更新 key 的事件
+  emit('update:key', currentPath.value, newKey)
 }
 
 const saveValueEdit = () => {
