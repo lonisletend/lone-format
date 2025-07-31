@@ -77,23 +77,6 @@ const showMessage = (msg: string, type: 'success' | 'error' | 'info') => {
   }, 3000)
 }
 
-// 事件处理
-const onCopySuccess = (value: string) => {
-  showMessage(`已复制 ${value.length} 个字符到剪贴板`, 'success')
-}
-
-const onCopyError = (error: Error) => {
-  showMessage(`复制失败: ${error.message}`, 'error')
-}
-
-const onExpandAll = () => {
-  showMessage('所有节点已展开', 'info')
-}
-
-const onCollapseAll = () => {
-  showMessage('所有节点已折叠', 'info')
-}
-
 // JsonFormat 示例数据 - 大型 JSON 测试性能
 const sampleJson = ref(`{
   "name": "Lone Format Library - Performance Test",
@@ -249,11 +232,6 @@ const invalidJson = ref(`{
       <section class="demo-section">
         <h2>🔧 JSON Format Component</h2>
 
-        <!-- 消息提示 -->
-        <div v-if="message" :class="['message', `message--${messageType}`]">
-          {{ message }}
-        </div>
-
         <div class="component-item">
           <h3>Sample JSON with Large Numbers</h3>
           <p class="description">
@@ -261,8 +239,7 @@ const invalidJson = ref(`{
             nested objects, arrays, and different data types. Click on brackets to expand/collapse,
             and click on values to edit them.
           </p>
-          <JsonFormat ref="jsonFormatRef" v-model="sampleJson" @copy-success="onCopySuccess" @copy-error="onCopyError"
-            @expand-all="onExpandAll" @collapse-all="onCollapseAll" />
+          <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
         </div>
 
         <div class="component-item">
@@ -271,6 +248,11 @@ const invalidJson = ref(`{
             这个示例展示了如何使用自定义按钮控制 JsonFormat 组件。
             工具栏被隐藏，所有功能通过外部按钮控制。
           </p>
+
+          <!-- 消息提示 - 仅用于自定义控制示例 -->
+          <div v-if="message" :class="['message', `message--${messageType}`]">
+            {{ message }}
+          </div>
 
           <!-- 自定义控制按钮 -->
           <div class="custom-controls">
@@ -289,8 +271,7 @@ const invalidJson = ref(`{
           </div>
 
           <!-- 无工具栏的 JsonFormat -->
-          <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" @copy-success="onCopySuccess"
-            @copy-error="onCopyError" @expand-all="onExpandAll" @collapse-all="onCollapseAll" />
+          <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" />
         </div>
 
         <div class="component-item">
