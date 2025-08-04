@@ -1,24 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import DemoFormat from './components/DemoFormat/index.vue'
 import JsonFormat from './components/JsonFormat/index.vue'
-import type { Action } from './types'
 import type { JsonFormatExposed } from './components/JsonFormat/types'
 
-const basicActions = ref<Action[]>([
-  { label: 'Save', type: 'primary', handler: () => alert('Saved!') },
-  { label: 'Cancel', type: 'default', handler: () => alert('Cancelled!') }
-])
-
-const advancedActions = ref<Action[]>([
-  { label: 'Approve', type: 'success', handler: () => alert('Approved!') },
-  { label: 'Reject', type: 'danger', handler: () => alert('Rejected!') },
-  { label: 'Edit', type: 'warning', handler: () => alert('Editing...') }
-])
-
-const handleAction = (action: Action) => {
-  console.log('Action clicked:', action)
-}
 
 // JsonFormat 组件引用
 const jsonFormatRef = ref<JsonFormatExposed>()
@@ -208,25 +192,6 @@ const invalidJson = ref(`{
     </header>
 
     <main class="app-main">
-      <!-- DemoFormat 组件演示 -->
-      <section class="demo-section">
-        <h2>🎯 Demo Format Component</h2>
-        <div class="component-grid">
-          <div class="component-item">
-            <h3>Basic Usage</h3>
-            <DemoFormat title="Welcome to Lone Format"
-              content="This is a basic demo format component showcasing the default styling and functionality."
-              badge="Demo" type="info" :actions="basicActions" @action="handleAction" />
-          </div>
-
-          <div class="component-item">
-            <h3>Success Type with Actions</h3>
-            <DemoFormat title="Success Format"
-              content="This example demonstrates the success type with multiple action buttons." badge="Success"
-              type="success" :actions="advancedActions" @action="handleAction" />
-          </div>
-        </div>
-      </section>
 
       <!-- JsonFormat 组件演示 -->
       <section class="demo-section">
@@ -297,23 +262,6 @@ const invalidJson = ref(`{
           </p>
           <JsonFormat v-model="invalidJson" />
         </div>
-      </section>
-
-      <!-- 自定义内容示例 -->
-      <section class="demo-section">
-        <h2>🎨 Custom Content</h2>
-        <DemoFormat title="Custom Content Example" badge="Custom" type="warning"
-          :actions="[{ label: 'Acknowledge', type: 'warning' }]" @action="handleAction">
-          <div class="custom-content">
-            <p><strong>Custom Content:</strong> You can use slots to insert any content here!</p>
-            <ul>
-              <li>✅ Lists</li>
-              <li>🖼️ Images</li>
-              <li>🧩 Other Vue components</li>
-              <li>📝 Rich text content</li>
-            </ul>
-          </div>
-        </DemoFormat>
       </section>
     </main>
 

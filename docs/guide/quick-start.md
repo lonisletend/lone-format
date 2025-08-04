@@ -16,12 +16,17 @@ After importing, you can use all components in any Vue template:
 
 ```vue
 <template>
-  <DemoFormat 
-    title="Hello World" 
-    content="This is a demo" 
-    type="success" 
+  <JsonFormat 
+    v-model="jsonData"
+    :readonly="false"
   />
 </template>
+
+<script setup>
+import { ref } from 'vue'
+
+const jsonData = ref('{"hello": "world"}')
+</script>
 ```
 
 ## On-demand Import (Recommended)
@@ -30,23 +35,20 @@ For better tree-shaking, import only the components you need:
 
 ```vue
 <template>
-  <DemoFormat 
-    title="On-demand Import" 
-    :actions="actions"
-    @action="handleAction"
+  <JsonFormat 
+    v-model="data"
+    @update:modelValue="handleUpdate"
   />
 </template>
 
 <script setup>
-import { DemoFormat } from 'lone-format'
+import { ref } from 'vue'
+import { JsonFormat } from 'lone-format'
 
-const actions = [
-  { label: 'Save', type: 'primary' },
-  { label: 'Cancel', type: 'default' }
-]
+const data = ref('{"example": "data"}')
 
-const handleAction = (action) => {
-  console.log('Action:', action.label)
+const handleUpdate = (newValue) => {
+  console.log('JSON updated:', newValue)
 }
 </script>
 ```
@@ -57,11 +59,13 @@ Lone Format has full TypeScript support. When using TypeScript, you'll get full 
 
 ```vue
 <script setup lang="ts">
-import { DemoFormat, type Action } from 'lone-format'
+import { ref } from 'vue'
+import { JsonFormat } from 'lone-format'
 
-const actions: Action[] = [
-  { label: 'Confirm', type: 'primary', handler: () => {} },
-  { label: 'Cancel', type: 'default', handler: () => {} }
-]
+const jsonData = ref<string>('{"typed": "data"}')
+
+const handleJsonUpdate = (newValue: string): void => {
+  console.log('Updated:', newValue)
+}
 </script>
 ```

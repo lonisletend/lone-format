@@ -8,9 +8,13 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/lone-format.js",
-      "require": "./dist/lone-format.umd.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/lone-format.umd.cjs"
+    },
+    "./json-format": {
+      "types": "./dist/components/JsonFormat/index.d.ts",
+      "import": "./dist/components/JsonFormat/index.js"
     }
   },
   "files": [
@@ -27,13 +31,17 @@
   },
   "dependencies": {
     "@types/json-bigint": "^1.0.4",
-    "json-bigint": "^1.0.0",
-    "vue": "^3.5.17"
+    "json-bigint": "^1.0.0"
+  },
+  "peerDependencies": {
+    "vue": ">=3.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",
     "@vitejs/plugin-vue": "^6.0.0",
     "@vue/tsconfig": "^0.7.0",
+    "glob": "^11.0.3",
+    "prettier": "^3.6.2",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
     "vitepress": "^1.6.3",

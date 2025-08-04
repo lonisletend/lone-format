@@ -42,7 +42,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import JSONbig from 'json-bigint'
+// @ts-ignore
+import JSONbig = require('json-bigint')
 import JsonNode from './JsonNode.vue'
 
 // 配置 json-bigint 以处理大数
