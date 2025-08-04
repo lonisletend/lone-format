@@ -1,6 +1,6 @@
 {
   "name": "lone-format",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "A Vue 3 component library for formatting with tree-shaking support",
   "main": "./dist/lone-format.umd.cjs",
@@ -15,7 +15,8 @@
     "./json-format": {
       "types": "./dist/components/JsonFormat/index.d.ts",
       "import": "./dist/components/JsonFormat/index.js"
-    }
+    },
+    "./lone-format.css": "./dist/lone-format.css"
   },
   "files": [
     "dist"
@@ -27,7 +28,9 @@
     "preview": "vite preview",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "publish:lib": "npm publish --access public",
+    "publish:dry": "npm publish --dry-run"
   },
   "dependencies": {
     "@types/json-bigint": "^1.0.4",
