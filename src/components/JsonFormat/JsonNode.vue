@@ -25,16 +25,18 @@
 
       <!-- 展开的内容 -->
       <div v-if="isExpanded" class="json-node__children">
-        <div v-for="(childValue, childKey) in value" :key="childKey" class="json-node__child">
-          <JsonNode :value="childValue" :key-name="isArray ? '' : String(childKey)" :level="level + 1"
-            :path="childPath(String(childKey))" :expanded="expanded"
-            @update:value="(path, newValue) => $emit('update:value', path, newValue)"
-            @toggle-expand="(path) => $emit('toggle-expand', path)" @copy="(value) => $emit('copy', value)"
-            @update:key="(oldPath, newKey) => $emit('update:key', oldPath, newKey)"
-            :is-last="isLastItem(String(childKey))" />
+        <div class="json-node__children-content">
+          <div v-for="(childValue, childKey) in value" :key="childKey" class="json-node__child">
+            <JsonNode :value="childValue" :key-name="isArray ? '' : String(childKey)" :level="level + 1"
+              :path="childPath(String(childKey))" :expanded="expanded"
+              @update:value="(path, newValue) => $emit('update:value', path, newValue)"
+              @toggle-expand="(path) => $emit('toggle-expand', path)" @copy="(value) => $emit('copy', value)"
+              @update:key="(oldPath, newKey) => $emit('update:key', oldPath, newKey)"
+              :is-last="isLastItem(String(childKey))" />
+          </div>
         </div>
 
-        <div class="json-node__line">
+        <div class="json-node__line json-node__closing-bracket">
           <span class="json-node__bracket">{{ closeBracket }}</span><span v-if="!isLast"
             class="json-node__comma">,</span>
         </div>
@@ -443,7 +445,7 @@ defineOptions({
 }
 
 /* 缩进指示线 */
-.json-node__children::before {
+.json-node__children-content::before {
   content: '';
   position: absolute;
   left: calc(v-bind(level) * 20px);
@@ -456,6 +458,10 @@ defineOptions({
 }
 
 .json-node__children {
+  position: relative;
+}
+
+.json-node__children-content {
   position: relative;
 }
 
