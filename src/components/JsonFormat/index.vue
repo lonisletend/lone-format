@@ -15,6 +15,10 @@
           title="Collapse All">
           ➡️ Collapse All
         </button>
+        <button class="json-format__btn json-format__btn--secondary" @click="compressSource" :disabled="!isValidJson"
+          title="Compress JSON">
+          📦 Compress
+        </button>
       </div>
       <div class="json-format__info">
         <span v-if="isValidJson" class="json-format__status json-format__status--success">
@@ -42,15 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-// @ts-ignore
-import JSONbig = require('json-bigint')
 import JsonNode from './JsonNode.vue'
-
-// 配置 json-bigint 以处理大数
-const JSONBig = JSONbig({
-  storeAsString: true, // 将大数存储为字符串
-  useNativeBigInt: false
-})
 
 interface Props {
   modelValue: string
@@ -72,6 +68,7 @@ const emit = defineEmits<{
   'copy-error': [error: Error]
   'expand-all': []
   'collapse-all': []
+  'compress': [value: string]
 }>()
 
 // 响应式数据
@@ -91,13 +88,21 @@ const parseJson = (jsonString: string) => {
   }
 
   try {
-    parsedJson.value = JSONBig.parse(jsonString)
+    let processedString = jsonString
+
+    // 处理大数字：将16位以上的数字转为字符串
+    processedString = processedString.replace(/:\s*(\d{16,})\s*([,}])/g, ': "$1"$2')
+
+    // 处理小数精度：将有尾随零的小数转为字符串以保持精度
+    processedString = processedString.replace(/:\s*(\d+\.\d*?0+)\s*([,}])/g, ': "$1"$2')
+
+    parsedJson.value = JSON.parse(processedString)
     parseError.value = ''
 
-    // 自动展开第一层
+    // 自动展开所有层级
     nextTick(() => {
       if (parsedJson.value !== null) {
-        expandedNodes.value.add('root')
+        expandAll()
       }
     })
   } catch (error) {
@@ -111,13 +116,65 @@ watch(() => props.modelValue, (newValue) => {
   parseJson(newValue)
 }, { immediate: true })
 
+// 判断字符串是否为大数字
+const isBigNumberString = (value: string): boolean => {
+  // 检查是否为纯数字字符串（可能包含负号和小数点）
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return false
+
+  // 检查是否超出 JavaScript Number 的安全范围
+  const num = Number(value)
+  return !Number.isSafeInteger(num) || value.length > 15
+}
+
+// 自定义 stringify 函数，保持数字格式
+const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): string => {
+  return JSON.stringify(obj, (key, value) => {
+    // 如果是大数字字符串，标记它以便后续处理
+    if (typeof value === 'string' && isBigNumberString(value)) {
+      return `__BIG_NUMBER__${value}__BIG_NUMBER__`
+    }
+
+    // 如果是普通数字字符串（但看起来像数字），尝试转换为数字
+    if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) {
+      const num = Number(value)
+      // 如果是整数且没有精度损失，返回数字
+      if (Number.isSafeInteger(num) && num.toString() === value) {
+        return num
+      }
+      // 如果是浮点数，需要保持原始精度，特别是尾随零
+      else if (!Number.isNaN(num) && isFinite(num) && value.includes('.')) {
+        // 对于小数，我们需要保持原始字符串的精度
+        // 只有当原始字符串确实等于数字的规范表示时才转换
+        // 但为了保持精度（如 4.8000），我们保留字符串形式
+        // 只有当字符串形式与数字的标准表示完全一致时才转换为数字
+        const standardForm = num.toString()
+        if (standardForm === value) {
+          return num
+        }
+        // 否则保持原始字符串，以保留精度
+        return value
+      }
+      // 如果是整数形式但超出安全范围，保持字符串
+      else if (!Number.isNaN(num) && isFinite(num)) {
+        return num
+      }
+    }
+
+    // 应用用户提供的 replacer
+    if (replacer && typeof replacer === 'function') {
+      return replacer(key, value)
+    }
+    return value
+  }, space).replace(/"__BIG_NUMBER__(.+?)__BIG_NUMBER__"/g, '$1')
+}
+
 // 更新值
 const updateValue = (path: string, newValue: any) => {
   if (props.readonly) return
 
   try {
     const updatedJson = updateJsonByPath(parsedJson.value, path, newValue)
-    const jsonString = JSONBig.stringify(updatedJson, null, 2)
+    const jsonString = stringifyPreservingNumbers(updatedJson, null, 2)
     emit('update:modelValue', jsonString)
   } catch (error) {
     console.error('Failed to update JSON:', error)
@@ -216,14 +273,20 @@ const copyJson = async () => {
   }
 }
 
-// 判断字符串是否为大数字（与JsonNode中的函数保持一致）
-const isBigNumberString = (value: string): boolean => {
-  // 检查是否为纯数字字符串（可能包含负号和小数点）
-  if (!/^-?\d+(\.\d+)?$/.test(value)) return false
+// 压缩 JSON
+const compressSource = () => {
+  if (!isValidJson.value) return
 
-  // 检查是否超出 JavaScript Number 的安全范围
-  const num = Number(value)
-  return !Number.isSafeInteger(num) || value.length > 15
+  try {
+    // 使用 stringifyPreservingNumbers 保持数字格式，但不添加格式化空格
+    const compressedJson = stringifyPreservingNumbers(parsedJson.value)
+
+    // 更新 modelValue，触发重新解析和显示
+    emit('update:modelValue', compressedJson)
+    emit('compress', compressedJson)
+  } catch (error) {
+    console.error('Failed to compress JSON:', error)
+  }
 }
 
 // 复制值
@@ -254,7 +317,7 @@ const updateKey = (oldPath: string, newKey: string) => {
 
   try {
     const updatedJson = renameJsonKey(parsedJson.value, oldPath, newKey)
-    const jsonString = JSONBig.stringify(updatedJson, null, 2)
+    const jsonString = stringifyPreservingNumbers(updatedJson, null, 2)
     emit('update:modelValue', jsonString)
 
     // 更新展开状态中的路径
@@ -413,6 +476,7 @@ defineOptions({
 defineExpose({
   // 核心操作方法
   copyJson,
+  compressSource,
   expandAll,
   collapseAll,
   toggleExpand,
@@ -515,8 +579,8 @@ defineExpose({
 }
 
 .json-format__content {
-  padding: 16px;
-  max-height: 600px;
+  padding: 8px 16px 8px 16px;
+  /* max-height: 600px; */
   overflow: auto;
 }
 
@@ -525,7 +589,7 @@ defineExpose({
   background: #ffebe9;
   border: 1px solid #ff818266;
   border-radius: 6px;
-  padding: 16px;
+  padding: 8px 16px 8px 16px;
 }
 
 .json-format__error h4 {
@@ -547,8 +611,8 @@ defineExpose({
 
 /* 滚动条样式 */
 .json-format__content::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 .json-format__content::-webkit-scrollbar-track {
@@ -557,7 +621,7 @@ defineExpose({
 
 .json-format__content::-webkit-scrollbar-thumb {
   background: #d0d7de;
-  border-radius: 4px;
+  border-radius: px;
 }
 
 .json-format__content::-webkit-scrollbar-thumb:hover {
