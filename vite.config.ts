@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import dts from 'vite-plugin-dts'
 import { resolve } from 'path'
 
 // https://vite.dev/config/
@@ -7,7 +8,10 @@ export default defineConfig(({ mode }) => {
   const isLib = mode === 'lib'
 
   return {
-    plugins: [vue()],
+    plugins: [
+      vue(),
+      dts({ insertTypesEntry: true, outputDir: 'dist' })
+    ],
     build: isLib ? {
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),

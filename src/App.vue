@@ -1,24 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import DemoFormat from './components/DemoFormat/index.vue'
 import JsonFormat from './components/JsonFormat/index.vue'
-import type { Action } from './types'
 import type { JsonFormatExposed } from './components/JsonFormat/types'
 
-const basicActions = ref<Action[]>([
-  { label: 'Save', type: 'primary', handler: () => alert('Saved!') },
-  { label: 'Cancel', type: 'default', handler: () => alert('Cancelled!') }
-])
-
-const advancedActions = ref<Action[]>([
-  { label: 'Approve', type: 'success', handler: () => alert('Approved!') },
-  { label: 'Reject', type: 'danger', handler: () => alert('Rejected!') },
-  { label: 'Edit', type: 'warning', handler: () => alert('Editing...') }
-])
-
-const handleAction = (action: Action) => {
-  console.log('Action clicked:', action)
-}
 
 // JsonFormat 组件引用
 const jsonFormatRef = ref<JsonFormatExposed>()
@@ -198,6 +182,12 @@ const invalidJson = ref(`{
   "missing": quote,
   "extra": "comma",
 }`)
+
+// 互动式编辑器的数据
+const interactiveJson = ref(`{"status":200,"text":"","error":null,"data":[{"news_id":123456789012345678901234567890,"title":"iPhone X Review: Innovative future with real black technology","source":"Netease phone","rating":0.5},{"news_id":123456789012345678901234567891,"title":"Traffic paradise: How to design streets for people and unmanned vehicles in the future?","source":"Netease smart","link":"http://netease.smart/traffic-paradise/1235","rating":0.60},{"news_id":123456789012345678901234567892,"title":"Teslamask's American Business Relations: The government does not pay billions to build factories","source":"AI Finance","rating":0.8000,"members":["Daniel","Mike","John"]}]}`)
+
+// Tab 管理
+const activeTab = ref('interactive')
 </script>
 
 <template>
@@ -208,112 +198,171 @@ const invalidJson = ref(`{
     </header>
 
     <main class="app-main">
-      <!-- DemoFormat 组件演示 -->
-      <section class="demo-section">
-        <h2>🎯 Demo Format Component</h2>
-        <div class="component-grid">
-          <div class="component-item">
-            <h3>Basic Usage</h3>
-            <DemoFormat title="Welcome to Lone Format"
-              content="This is a basic demo format component showcasing the default styling and functionality."
-              badge="Demo" type="info" :actions="basicActions" @action="handleAction" />
-          </div>
-
-          <div class="component-item">
-            <h3>Success Type with Actions</h3>
-            <DemoFormat title="Success Format"
-              content="This example demonstrates the success type with multiple action buttons." badge="Success"
-              type="success" :actions="advancedActions" @action="handleAction" />
-          </div>
-        </div>
-      </section>
 
       <!-- JsonFormat 组件演示 -->
       <section class="demo-section">
         <h2>🔧 JSON Format Component</h2>
 
-        <div class="component-item">
-          <h3>Sample JSON with Large Numbers</h3>
-          <p class="description">
-            This example shows JSON formatting with large numbers (handled by json-bigint),
-            nested objects, arrays, and different data types. Click on brackets to expand/collapse,
-            and click on values to edit them.
-          </p>
-          <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
+        <!-- Tab 导航 -->
+        <div class="tab-navigation">
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'interactive' }]"
+            @click="activeTab = 'interactive'">
+            🚀 Interactive Example
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'basic' }]" @click="activeTab = 'basic'">
+            📄 Basic Example
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'custom' }]" @click="activeTab = 'custom'">
+            🎛️ Custom Control
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'complex' }]" @click="activeTab = 'complex'">
+            🌐 Complex Structure
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'invalid' }]" @click="activeTab = 'invalid'">
+            ❌ Invalid JSON
+          </button>
         </div>
 
-        <div class="component-item">
-          <h3>🎛️ Custom Control Example</h3>
-          <p class="description">
-            这个示例展示了如何使用自定义按钮控制 JsonFormat 组件。
-            工具栏被隐藏，所有功能通过外部按钮控制。
-          </p>
-
-          <!-- 消息提示 - 仅用于自定义控制示例 -->
-          <div v-if="message" :class="['message', `message--${messageType}`]">
-            {{ message }}
+        <!-- Tab 内容 -->
+        <div class="tab-content">
+          <!-- Basic Example Tab -->
+          <div v-show="activeTab === 'basic'" class="component-item">
+            <h3>Sample JSON with Large Numbers</h3>
+            <p class="description">
+              This example shows JSON formatting with large numbers (handled by json-bigint),
+              nested objects, arrays, and different data types. Click on brackets to expand/collapse,
+              and click on values to edit them.
+            </p>
+            <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
           </div>
 
-          <!-- 自定义控制按钮 -->
-          <div class="custom-controls">
-            <button @click="handleCustomCopy" class="custom-btn custom-btn--primary">
-              📋 自定义复制
-            </button>
-            <button @click="handleCustomExpandAll" class="custom-btn custom-btn--success">
-              📖 展开全部
-            </button>
-            <button @click="handleCustomCollapseAll" class="custom-btn custom-btn--warning">
-              📕 折叠全部
-            </button>
-            <button @click="checkCustomJsonStatus" class="custom-btn custom-btn--info">
-              🔍 检查状态
-            </button>
+          <!-- Custom Control Tab -->
+          <div v-show="activeTab === 'custom'" class="component-item">
+            <h3>🎛️ Custom Control Example</h3>
+            <p class="description">
+              这个示例展示了如何使用自定义按钮控制 JsonFormat 组件。
+              工具栏被隐藏，所有功能通过外部按钮控制。
+            </p>
+
+            <!-- 消息提示 - 仅用于自定义控制示例 -->
+            <div v-if="message" :class="['message', `message--${messageType}`]">
+              {{ message }}
+            </div>
+
+            <!-- 自定义控制按钮 -->
+            <div class="custom-controls">
+              <button @click="handleCustomCopy" class="custom-btn custom-btn--primary">
+                📋 自定义复制
+              </button>
+              <button @click="handleCustomExpandAll" class="custom-btn custom-btn--success">
+                📖 展开全部
+              </button>
+              <button @click="handleCustomCollapseAll" class="custom-btn custom-btn--warning">
+                📕 折叠全部
+              </button>
+              <button @click="checkCustomJsonStatus" class="custom-btn custom-btn--info">
+                🔍 检查状态
+              </button>
+            </div>
+
+            <!-- 无工具栏的 JsonFormat -->
+            <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" />
           </div>
 
-          <!-- 无工具栏的 JsonFormat -->
-          <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" />
+          <!-- Complex Structure Tab -->
+          <div v-show="activeTab === 'complex'" class="component-item">
+            <h3>Complex Nested Structure</h3>
+            <p class="description">
+              A more complex example with deeply nested objects and arrays.
+              Test the collapsible functionality and value editing.
+            </p>
+            <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" />
+
+            <!-- 另一组自定义按钮 -->
+            <div class="custom-controls" style="margin-top: 16px;">
+              <button @click="handleComplexCopy" class="custom-btn custom-btn--secondary">
+                📄 复制复杂 JSON
+              </button>
+            </div>
+          </div>
+
+          <!-- Invalid JSON Tab -->
+          <div v-show="activeTab === 'invalid'" class="component-item">
+            <h3>Invalid JSON Example</h3>
+            <p class="description">
+              This example shows how the component handles invalid JSON with proper error display.
+              The component gracefully handles syntax errors and provides helpful feedback.
+            </p>
+            <JsonFormat v-model="invalidJson" />
+
+            <!-- 添加无效JSON的说明和示例 -->
+            <div class="invalid-json-info">
+              <h4>常见 JSON 语法错误示例：</h4>
+              <div class="error-examples">
+                <div class="error-example">
+                  <strong>❌ 缺少引号：</strong>
+                  <code>{ name: "value" }</code>
+                  <span class="error-note">属性名必须用双引号包围</span>
+                </div>
+                <div class="error-example">
+                  <strong>❌ 多余的逗号：</strong>
+                  <code>{ "name": "value", }</code>
+                  <span class="error-note">最后一个属性后不能有逗号</span>
+                </div>
+                <div class="error-example">
+                  <strong>❌ 单引号：</strong>
+                  <code>{ 'name': 'value' }</code>
+                  <span class="error-note">JSON 只支持双引号</span>
+                </div>
+                <div class="error-example">
+                  <strong>❌ 注释：</strong>
+                  <code>{ /* comment */ "name": "value" }</code>
+                  <span class="error-note">JSON 不支持注释</span>
+                </div>
+              </div>
+
+              <div class="tips">
+                <h4>💡 调试技巧：</h4>
+                <ul>
+                  <li>使用在线 JSON 验证工具检查语法</li>
+                  <li>注意括号、引号的匹配</li>
+                  <li>检查是否有多余的逗号</li>
+                  <li>确保所有字符串都使用双引号</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Editor Tab -->
+          <div v-show="activeTab === 'interactive'" class="component-item component-item--full">
+            <h3>🚀 Interactive JSON Editor</h3>
+            <p class="description">
+              双向编辑器：左侧输入 JSON 字符串，右侧实时预览格式化结果。
+              你可以在左侧编辑原始 JSON，也可以在右侧直接修改格式化后的键值，两边会实时同步。
+            </p>
+
+            <div class="interactive-editor">
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>📝 JSON Input</h4>
+                  <span class="panel-info">原始 JSON 字符串</span>
+                </div>
+                <textarea v-model="interactiveJson" class="json-textarea" placeholder="在这里输入 JSON 字符串..."
+                  spellcheck="false"></textarea>
+              </div>
+
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>🎨 Formatted View</h4>
+                  <span class="panel-info">格式化预览 (可编辑)</span>
+                </div>
+                <div class="json-format-wrapper">
+                  <JsonFormat v-model="interactiveJson" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div class="component-item">
-          <h3>Complex Nested Structure</h3>
-          <p class="description">
-            A more complex example with deeply nested objects and arrays.
-            Test the collapsible functionality and value editing.
-          </p>
-          <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" />
-
-          <!-- 另一组自定义按钮 -->
-          <div class="custom-controls" style="margin-top: 16px;">
-            <button @click="handleComplexCopy" class="custom-btn custom-btn--secondary">
-              📄 复制复杂 JSON
-            </button>
-          </div>
-        </div>
-
-        <div class="component-item">
-          <h3>Invalid JSON Example</h3>
-          <p class="description">
-            This example shows how the component handles invalid JSON with proper error display.
-          </p>
-          <JsonFormat v-model="invalidJson" />
-        </div>
-      </section>
-
-      <!-- 自定义内容示例 -->
-      <section class="demo-section">
-        <h2>🎨 Custom Content</h2>
-        <DemoFormat title="Custom Content Example" badge="Custom" type="warning"
-          :actions="[{ label: 'Acknowledge', type: 'warning' }]" @action="handleAction">
-          <div class="custom-content">
-            <p><strong>Custom Content:</strong> You can use slots to insert any content here!</p>
-            <ul>
-              <li>✅ Lists</li>
-              <li>🖼️ Images</li>
-              <li>🧩 Other Vue components</li>
-              <li>📝 Rich text content</li>
-            </ul>
-          </div>
-        </DemoFormat>
       </section>
     </main>
 
@@ -557,6 +606,267 @@ const invalidJson = ref(`{
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 互动式编辑器样式 */
+.component-item--full {
+  grid-column: 1 / -1;
+  /* 占满整行 */
+}
+
+.interactive-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  min-height: 500px;
+}
+
+.editor-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.panel-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.panel-info {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.json-textarea {
+  flex: 1;
+  border: none;
+  padding: 16px;
+  font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  background: #fafbfc;
+  color: #24292f;
+  tab-size: 2;
+}
+
+.json-textarea:focus {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px #667eea;
+}
+
+.json-format-wrapper {
+  flex: 1;
+  overflow: hidden;
+}
+
+.json-format-wrapper .json-format {
+  border: none;
+  border-radius: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.json-format-wrapper .json-format__content {
+  flex: 1;
+  overflow: auto;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .interactive-editor {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    min-height: auto;
+  }
+
+  .editor-panel {
+    min-height: 300px;
+  }
+}
+
+/* Tab 导航样式 */
+.tab-navigation {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e9ecef;
+  overflow-x: auto;
+  padding-bottom: 0;
+}
+
+.tab-btn {
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+  border-bottom: 3px solid transparent;
+  outline: none;
+  /* 移除默认焦点轮廓 */
+}
+
+.tab-btn:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.tab-btn:focus {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.tab-btn--active {
+  background: #ffffff;
+  color: #667eea;
+  border-bottom-color: #667eea;
+  font-weight: 600;
+}
+
+.tab-btn--active:focus {
+  background: #ffffff;
+  color: #667eea;
+}
+
+.tab-content {
+  min-height: 400px;
+}
+
+.tab-content .component-item {
+  margin: 0;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: 500px;
+  /* 确保所有 tab 内容有最小高度 */
+  width: 100%;
+  /* 确保所有 tab 内容宽度一致 */
+  box-sizing: border-box;
+  /* 包含padding和border在内的宽度计算 */
+}
+
+.tab-content .component-item--full {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Invalid JSON tab 特殊样式 */
+.invalid-json-info {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #dc3545;
+}
+
+.invalid-json-info h4 {
+  margin: 0 0 16px 0;
+  color: #dc3545;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.error-examples {
+  margin-bottom: 20px;
+}
+
+.error-example {
+  margin-bottom: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.error-example:last-child {
+  border-bottom: none;
+}
+
+.error-example strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #dc3545;
+}
+
+.error-example code {
+  background: #f1f3f4;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: Monaco, Consolas, "Courier New", monospace;
+  font-size: 0.9rem;
+  color: #d73a49;
+  display: block;
+  margin: 4px 0;
+}
+
+.error-note {
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.tips {
+  background: white;
+  padding: 16px;
+  border-radius: 6px;
+  border-left: 4px solid #17a2b8;
+}
+
+.tips h4 {
+  margin: 0 0 12px 0;
+  color: #17a2b8;
+  font-size: 1rem;
+}
+
+.tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.tips li {
+  margin: 6px 0;
+  color: #495057;
+}
+
+/* 移动端 Tab 响应式 */
+@media (max-width: 768px) {
+  .tab-navigation {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tab-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    flex: 1;
+    min-width: auto;
   }
 }
 </style>

@@ -25,16 +25,18 @@
 
       <!-- 展开的内容 -->
       <div v-if="isExpanded" class="json-node__children">
-        <div v-for="(childValue, childKey) in value" :key="childKey" class="json-node__child">
-          <JsonNode :value="childValue" :key-name="isArray ? '' : String(childKey)" :level="level + 1"
-            :path="childPath(String(childKey))" :expanded="expanded"
-            @update:value="(path, newValue) => $emit('update:value', path, newValue)"
-            @toggle-expand="(path) => $emit('toggle-expand', path)" @copy="(value) => $emit('copy', value)"
-            @update:key="(oldPath, newKey) => $emit('update:key', oldPath, newKey)"
-            :is-last="isLastItem(String(childKey))" />
+        <div class="json-node__children-content">
+          <div v-for="(childValue, childKey) in value" :key="childKey" class="json-node__child">
+            <JsonNode :value="childValue" :key-name="isArray ? '' : String(childKey)" :level="level + 1"
+              :path="childPath(String(childKey))" :expanded="expanded"
+              @update:value="(path, newValue) => $emit('update:value', path, newValue)"
+              @toggle-expand="(path) => $emit('toggle-expand', path)" @copy="(value) => $emit('copy', value)"
+              @update:key="(oldPath, newKey) => $emit('update:key', oldPath, newKey)"
+              :is-last="isLastItem(String(childKey))" />
+          </div>
         </div>
 
-        <div class="json-node__line">
+        <div class="json-node__line json-node__closing-bracket">
           <span class="json-node__bracket">{{ closeBracket }}</span><span v-if="!isLast"
             class="json-node__comma">,</span>
         </div>
@@ -52,11 +54,10 @@
 
       <span v-if="!isEditingValue" class="json-node__value" :class="valueClass" @click="editValue"
         @dblclick="$emit('copy', value)" :title="valueTitle">
-        {{ formattedValue }}
+        {{ formattedValue }}<span v-if="!isLast" class="json-node__comma">,</span>
       </span>
       <input v-if="isEditingValue" v-model="editingValueValue" @keyup.enter="saveValueEdit"
         @keyup.escape="cancelValueEdit" @blur="saveValueEdit" class="json-node__value-input" />
-      <span v-if="!isLast" class="json-node__comma">,</span>
     </div>
   </div>
 </template>
@@ -338,6 +339,8 @@ defineOptions({
   display: flex;
   align-items: baseline;
   margin-left: calc(v-bind(level) * 20px);
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .json-node__child {
@@ -356,6 +359,8 @@ defineOptions({
   display: flex;
   align-items: baseline;
   margin-left: calc(v-bind(level) * 20px);
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .json-node__key {
@@ -401,6 +406,11 @@ defineOptions({
   padding: 1px 3px;
   border-radius: 3px;
   user-select: text;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  display: inline-block;
 }
 
 .json-node__value:hover {
@@ -443,7 +453,7 @@ defineOptions({
 }
 
 /* 缩进指示线 */
-.json-node__children::before {
+.json-node__children-content::before {
   content: '';
   position: absolute;
   left: calc(v-bind(level) * 20px);
@@ -456,6 +466,10 @@ defineOptions({
 }
 
 .json-node__children {
+  position: relative;
+}
+
+.json-node__children-content {
   position: relative;
 }
 
