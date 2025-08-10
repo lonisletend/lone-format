@@ -184,7 +184,7 @@ const invalidJson = ref(`{
 }`)
 
 // 互动式编辑器的数据
-const interactiveJson = ref(`{"name":"Interactive JSON Editor","version":"1.0.0","bigNumber":12345678901234567890,"features":["Real-time preview","Bidirectional editing","Syntax highlighting"],"config":{"theme":"default","autoSave":true,"indent":2},"stats":{"users":1250,"rating":4.8000}}`)
+const interactiveJson = ref(`{"status":200,"text":"","error":null,"data":[{"news_id":123456789012345678901234567890,"title":"iPhone X Review: Innovative future with real black technology","source":"Netease phone","rating":0.5},{"news_id":123456789012345678901234567891,"title":"Traffic paradise: How to design streets for people and unmanned vehicles in the future?","source":"Netease smart","link":"http://netease.smart/traffic-paradise/1235","rating":0.60},{"news_id":123456789012345678901234567892,"title":"Teslamask's American Business Relations: The government does not pay billions to build factories","source":"AI Finance","rating":0.8000,"members":["Daniel","Mike","John"]}]}`)
 
 // Tab 管理
 const activeTab = ref('interactive')

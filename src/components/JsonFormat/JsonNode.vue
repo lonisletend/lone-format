@@ -54,11 +54,10 @@
 
       <span v-if="!isEditingValue" class="json-node__value" :class="valueClass" @click="editValue"
         @dblclick="$emit('copy', value)" :title="valueTitle">
-        {{ formattedValue }}
+        {{ formattedValue }}<span v-if="!isLast" class="json-node__comma">,</span>
       </span>
       <input v-if="isEditingValue" v-model="editingValueValue" @keyup.enter="saveValueEdit"
         @keyup.escape="cancelValueEdit" @blur="saveValueEdit" class="json-node__value-input" />
-      <span v-if="!isLast" class="json-node__comma">,</span>
     </div>
   </div>
 </template>
@@ -340,6 +339,8 @@ defineOptions({
   display: flex;
   align-items: baseline;
   margin-left: calc(v-bind(level) * 20px);
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .json-node__child {
@@ -358,6 +359,8 @@ defineOptions({
   display: flex;
   align-items: baseline;
   margin-left: calc(v-bind(level) * 20px);
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .json-node__key {
@@ -403,6 +406,11 @@ defineOptions({
   padding: 1px 3px;
   border-radius: 3px;
   user-select: text;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  display: inline-block;
 }
 
 .json-node__value:hover {
