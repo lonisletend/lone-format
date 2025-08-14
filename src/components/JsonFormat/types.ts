@@ -4,11 +4,68 @@
 export type FilterType = 'jsonpath' | 'js'
 
 /**
+ * 主题类型枚举
+ */
+export type ThemeType = 'github-light' | 'github-dark'
+
+/**
  * Filter 配置接口
  */
 export interface FilterConfig {
   type: FilterType
   expression: string
+}
+
+/**
+ * 主题配置接口
+ */
+export interface ThemeConfig {
+  name: ThemeType
+  colors: {
+    // 背景色
+    background: string
+    surfaceBackground: string
+
+    // 边框色
+    border: string
+
+    // 文本色
+    text: string
+    textSecondary: string
+
+    // 按钮样式
+    buttonBackground: string
+    buttonBackgroundHover: string
+    buttonBorder: string
+    buttonText: string
+    buttonPrimary: string
+    buttonPrimaryHover: string
+
+    // 状态指示
+    success: string
+    successBackground: string
+    error: string
+    errorBackground: string
+
+    // JSON 语法高亮
+    syntaxString: string
+    syntaxNumber: string
+    syntaxBoolean: string
+    syntaxNull: string
+    syntaxKey: string
+    syntaxBracket: string
+
+    // 滚动条
+    scrollbarTrack: string
+    scrollbarThumb: string
+    scrollbarThumbHover: string
+
+    // 悬停效果
+    hoverBackground: string
+
+    // 缩进线
+    indentLine: string
+  }
 }
 
 /**
@@ -48,6 +105,8 @@ export interface JsonFormatProps {
   readonly?: boolean
   maxDepth?: number
   showToolbar?: boolean
+  theme?: ThemeType
+}
 }
 
 /**

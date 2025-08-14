@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
-import type { JsonFormatExposed } from './components/JsonFormat/types'
+import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
 
 
 // JsonFormat 组件引用
@@ -9,6 +9,14 @@ const jsonFormatRef = ref<JsonFormatExposed>()
 const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
 const filterTestRef = ref<JsonFormatExposed>()
+
+// 主题切换功能
+const currentTheme = ref<ThemeType>('github-light')
+
+const toggleTheme = () => {
+  currentTheme.value = currentTheme.value === 'github-light' ? 'github-dark' : 'github-light'
+  showMessage(`已切换到 ${currentTheme.value} 主题`, 'info')
+}
 
 // Filter 测试相关
 const filterType = ref<'jsonpath' | 'js' | ''>('')
@@ -264,6 +272,15 @@ const activeTab = ref('interactive')
     <header class="app-header">
       <h1>🎨 Lone Format Component Library</h1>
       <p>A Vue 3 component library demo with tree-shaking support</p>
+
+      <!-- 主题切换控制 -->
+      <div class="theme-control">
+        <label>主题:</label>
+        <button @click="toggleTheme" :class="['theme-toggle', `theme-toggle--${currentTheme}`]">
+          {{ currentTheme === 'github-light' ? '🌙 切换到深色主题' : '☀️ 切换到浅色主题' }}
+        </button>
+        <span class="current-theme">当前: {{ currentTheme }}</span>
+      </div>
     </header>
 
     <main class="app-main">
@@ -305,7 +322,7 @@ const activeTab = ref('interactive')
               nested objects, arrays, and different data types. Click on brackets to expand/collapse,
               and click on values to edit them.
             </p>
-            <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
+            <JsonFormat ref="jsonFormatRef" v-model="sampleJson" :theme="currentTheme" />
           </div>
 
           <!-- Custom Control Tab -->
@@ -338,7 +355,7 @@ const activeTab = ref('interactive')
             </div>
 
             <!-- 无工具栏的 JsonFormat -->
-            <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" />
+            <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" :theme="currentTheme" />
           </div>
 
           <!-- Complex Structure Tab -->
@@ -348,7 +365,7 @@ const activeTab = ref('interactive')
               A more complex example with deeply nested objects and arrays.
               Test the collapsible functionality and value editing.
             </p>
-            <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" />
+            <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" :theme="currentTheme" />
 
             <!-- 另一组自定义按钮 -->
             <div class="custom-controls" style="margin-top: 16px;">
@@ -422,7 +439,7 @@ const activeTab = ref('interactive')
             </div>
 
             <!-- JSON Display -->
-            <JsonFormat ref="filterTestRef" v-model="filterTestJson" />
+            <JsonFormat ref="filterTestRef" v-model="filterTestJson" :theme="currentTheme" />
           </div>
 
           <!-- Invalid JSON Tab -->
@@ -432,7 +449,7 @@ const activeTab = ref('interactive')
               This example shows how the component handles invalid JSON with proper error display.
               The component gracefully handles syntax errors and provides helpful feedback.
             </p>
-            <JsonFormat v-model="invalidJson" />
+            <JsonFormat v-model="invalidJson" :theme="currentTheme" />
 
             <!-- 添加无效JSON的说明和示例 -->
             <div class="invalid-json-info">
@@ -496,7 +513,7 @@ const activeTab = ref('interactive')
                   <span class="panel-info">格式化预览 (可编辑)</span>
                 </div>
                 <div class="json-format-wrapper">
-                  <JsonFormat v-model="interactiveJson" />
+                  <JsonFormat v-model="interactiveJson" :theme="currentTheme" />
                 </div>
               </div>
             </div>
@@ -535,9 +552,62 @@ const activeTab = ref('interactive')
 }
 
 .app-header p {
-  margin: 0;
+  margin: 0 0 20px 0;
   font-size: 1.2rem;
   opacity: 0.9;
+}
+
+.theme-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.theme-control label {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.theme-toggle {
+  padding: 8px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.theme-toggle--github-light {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle--github-dark {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.current-theme {
+  font-size: 12px;
+  opacity: 0.8;
+  font-family: 'Courier New', monospace;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .app-main {

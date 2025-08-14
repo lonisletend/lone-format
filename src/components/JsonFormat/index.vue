@@ -1,5 +1,5 @@
 <template>
-  <div class="json-format">
+  <div class="json-format" :class="`json-format--${currentTheme.name}`">
     <!-- 可选的工具栏 -->
     <div v-if="showToolbar" class="json-format__toolbar">
       <div class="json-format__actions">
@@ -43,7 +43,8 @@
 
       <div v-else class="json-format__viewer">
         <JsonNode :value="displayJson" :key-name="''" :level="0" :expanded="expandedNodes" :is-last="true"
-          @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue" @update:key="updateKey" />
+          :theme="currentTheme" @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue"
+          @update:key="updateKey" />
       </div>
     </div>
   </div>
@@ -53,20 +54,23 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { JSONPath } from 'jsonpath-plus'
 import JsonNode from './JsonNode.vue'
-import type { FilterConfig } from './types'
+import type { FilterConfig, ThemeType } from './types'
+import { getTheme } from './themes'
 
 interface Props {
   modelValue: string
   readonly?: boolean
   maxDepth?: number
   showToolbar?: boolean
+  theme?: ThemeType
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   readonly: false,
   maxDepth: 10,
-  showToolbar: true
+  showToolbar: true,
+  theme: 'github-light'
 })
 
 const emit = defineEmits<{
@@ -87,6 +91,9 @@ const filterError = ref<string>('')
 
 // 计算属性
 const isValidJson = computed(() => parseError.value === '')
+
+// 当前主题
+const currentTheme = computed(() => getTheme(props.theme))
 
 // 当前显示的 JSON 数据（可能是过滤后的）
 const displayJson = computed(() => {
@@ -596,12 +603,13 @@ defineExpose({
 
 <style scoped>
 .json-format {
-  border: 1px solid #d0d7de;
+  border: 1px solid v-bind('currentTheme.colors.border');
   border-radius: 6px;
-  background: #ffffff;
+  background: v-bind('currentTheme.colors.background');
   font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
   font-size: 14px;
   line-height: 1.45;
+  color: v-bind('currentTheme.colors.text');
 }
 
 .json-format__toolbar {
@@ -609,8 +617,8 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: v-bind('currentTheme.colors.surfaceBackground');
+  border-bottom: 1px solid v-bind('currentTheme.colors.border');
   border-radius: 6px 6px 0 0;
 }
 
@@ -621,18 +629,18 @@ defineExpose({
 
 .json-format__btn {
   padding: 4px 8px;
-  border: 1px solid #d0d7de;
+  border: 1px solid v-bind('currentTheme.colors.buttonBorder');
   border-radius: 6px;
-  background: #f6f8fa;
-  color: #24292f;
+  background: v-bind('currentTheme.colors.buttonBackground');
+  color: v-bind('currentTheme.colors.buttonText');
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .json-format__btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #d0d7de;
+  background: v-bind('currentTheme.colors.buttonBackgroundHover');
+  border-color: v-bind('currentTheme.colors.buttonBorder');
 }
 
 .json-format__btn:disabled {
@@ -641,18 +649,18 @@ defineExpose({
 }
 
 .json-format__btn--primary {
-  background: #2da44e;
+  background: v-bind('currentTheme.colors.buttonPrimary');
   color: white;
-  border-color: #2da44e;
+  border-color: v-bind('currentTheme.colors.buttonPrimary');
 }
 
 .json-format__btn--primary:hover:not(:disabled) {
-  background: #2c974b;
+  background: v-bind('currentTheme.colors.buttonPrimaryHover');
 }
 
 .json-format__btn--secondary {
-  background: #ffffff;
-  border-color: #d0d7de;
+  background: v-bind('currentTheme.colors.background');
+  border-color: v-bind('currentTheme.colors.border');
 }
 
 .json-format__info {
@@ -668,13 +676,13 @@ defineExpose({
 }
 
 .json-format__status--success {
-  background: #dafbe1;
-  color: #1a7f37;
+  background: v-bind('currentTheme.colors.successBackground');
+  color: v-bind('currentTheme.colors.success');
 }
 
 .json-format__status--error {
-  background: #ffebe9;
-  color: #cf222e;
+  background: v-bind('currentTheme.colors.errorBackground');
+  color: v-bind('currentTheme.colors.error');
 }
 
 .json-format__content {
@@ -684,9 +692,9 @@ defineExpose({
 }
 
 .json-format__error {
-  color: #cf222e;
-  background: #ffebe9;
-  border: 1px solid #ff818266;
+  color: v-bind('currentTheme.colors.error');
+  background: v-bind('currentTheme.colors.errorBackground');
+  border: 1px solid v-bind('currentTheme.colors.error') + '66';
   border-radius: 6px;
   padding: 8px 16px 8px 16px;
 }
@@ -705,7 +713,7 @@ defineExpose({
 }
 
 .json-format__viewer {
-  color: #24292f;
+  color: v-bind('currentTheme.colors.text');
 }
 
 /* 滚动条样式 */
@@ -715,15 +723,15 @@ defineExpose({
 }
 
 .json-format__content::-webkit-scrollbar-track {
-  background: #f6f8fa;
+  background: v-bind('currentTheme.colors.scrollbarTrack');
 }
 
 .json-format__content::-webkit-scrollbar-thumb {
-  background: #d0d7de;
-  border-radius: px;
+  background: v-bind('currentTheme.colors.scrollbarThumb');
+  border-radius: 2px;
 }
 
 .json-format__content::-webkit-scrollbar-thumb:hover {
-  background: #afb8c1;
+  background: v-bind('currentTheme.colors.scrollbarThumbHover');
 }
 </style>
