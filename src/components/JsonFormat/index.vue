@@ -230,16 +230,15 @@ const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): s
       }
       // 如果是浮点数，需要保持原始精度，特别是尾随零
       else if (!Number.isNaN(num) && isFinite(num) && value.includes('.')) {
-        // 对于小数，我们需要保持原始字符串的精度
-        // 只有当原始字符串确实等于数字的规范表示时才转换
-        // 但为了保持精度（如 4.8000），我们保留字符串形式
-        // 只有当字符串形式与数字的标准表示完全一致时才转换为数字
+        // 对于小数，检查数字的标准表示是否与原始字符串一致
         const standardForm = num.toString()
         if (standardForm === value) {
+          // 只有完全一致时才转换为数字
           return num
+        } else {
+          // 否则保持原始字符串，以保留精度（如尾随零）
+          return `__PRESERVE_STRING__${value}__PRESERVE_STRING__`
         }
-        // 否则保持原始字符串，以保留精度
-        return value
       }
       // 如果是整数形式但超出安全范围，保持字符串
       else if (!Number.isNaN(num) && isFinite(num)) {
@@ -252,7 +251,9 @@ const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): s
       return replacer(key, value)
     }
     return value
-  }, space).replace(/"__BIG_NUMBER__(.+?)__BIG_NUMBER__"/g, '$1')
+  }, space)
+    .replace(/"__BIG_NUMBER__(.+?)__BIG_NUMBER__"/g, '$1')
+    .replace(/"__PRESERVE_STRING__(.+?)__PRESERVE_STRING__"/g, '$1')
 }
 
 // 更新值
@@ -350,14 +351,11 @@ const copyJson = async () => {
     // 复制当前显示的数据（可能是过滤后的）
     const dataToCopy = displayJson.value
 
-    // 先正常序列化 JSON
-    const formattedJson = JSON.stringify(dataToCopy, null, 2)
+    // 使用 stringifyPreservingNumbers 保持数字格式和精度
+    const formattedJson = stringifyPreservingNumbers(dataToCopy, null, 2)
 
-    // 然后使用正则表达式替换大数字字符串的引号
-    const fixedJson = formattedJson.replace(/"(\d{16,})"/g, '$1')
-
-    await navigator.clipboard.writeText(fixedJson)
-    emit('copy-success', fixedJson)
+    await navigator.clipboard.writeText(formattedJson)
+    emit('copy-success', formattedJson)
   } catch (error) {
     console.error('Failed to copy JSON:', error)
     emit('copy-error', error instanceof Error ? error : new Error('Failed to copy JSON'))
