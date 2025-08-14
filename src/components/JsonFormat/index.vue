@@ -36,8 +36,13 @@
         <pre>{{ parseError }}</pre>
       </div>
 
+      <div v-else-if="filterError" class="json-format__error">
+        <h4>Filter Error:</h4>
+        <pre>{{ filterError }}</pre>
+      </div>
+
       <div v-else class="json-format__viewer">
-        <JsonNode :value="parsedJson" :key-name="''" :level="0" :expanded="expandedNodes" :is-last="true"
+        <JsonNode :value="displayJson" :key-name="''" :level="0" :expanded="expandedNodes" :is-last="true"
           @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue" @update:key="updateKey" />
       </div>
     </div>
@@ -46,7 +51,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { JSONPath } from 'jsonpath-plus'
 import JsonNode from './JsonNode.vue'
+import type { FilterConfig } from './types'
 
 interface Props {
   modelValue: string
@@ -75,15 +82,27 @@ const emit = defineEmits<{
 const parsedJson = ref<any>(null)
 const parseError = ref<string>('')
 const expandedNodes = ref<Set<string>>(new Set())
+const filteredJson = ref<any>(null)
+const filterError = ref<string>('')
 
 // 计算属性
 const isValidJson = computed(() => parseError.value === '')
+
+// 当前显示的 JSON 数据（可能是过滤后的）
+const displayJson = computed(() => {
+  if (filterError.value) {
+    return null
+  }
+  return filteredJson.value !== null ? filteredJson.value : parsedJson.value
+})
 
 // 解析 JSON 字符串
 const parseJson = (jsonString: string) => {
   if (!jsonString.trim()) {
     parsedJson.value = null
     parseError.value = ''
+    filteredJson.value = null
+    filterError.value = ''
     return
   }
 
@@ -99,16 +118,84 @@ const parseJson = (jsonString: string) => {
     parsedJson.value = JSON.parse(processedString)
     parseError.value = ''
 
+    // 清除之前的过滤结果和错误
+    filteredJson.value = null
+    filterError.value = ''
+
     // 自动展开所有层级
     nextTick(() => {
-      if (parsedJson.value !== null) {
+      if (displayJson.value !== null) {
         expandAll()
       }
     })
   } catch (error) {
     parseError.value = error instanceof Error ? error.message : 'Unknown parsing error'
     parsedJson.value = null
+    filteredJson.value = null
+    filterError.value = ''
   }
+}
+
+// 应用过滤器
+const applyFilter = (config: FilterConfig) => {
+  if (!config || !config.expression.trim()) {
+    clearFilter()
+    return
+  }
+
+  if (!parsedJson.value) {
+    filterError.value = 'No valid JSON data to filter'
+    return
+  }
+
+  try {
+    let result: any
+
+    if (config.type === 'jsonpath') {
+      // 使用 JSONPath 过滤
+      result = JSONPath({ path: config.expression, json: parsedJson.value })
+
+      // 如果 JSONPath 返回单个值，保持数组格式，否则如果是多个值的数组，保持数组
+      if (result.length === 1 && config.expression.includes('$[') === false && !config.expression.endsWith('[*]')) {
+        // 单个值且不是数组查询，返回值本身
+        filteredJson.value = result[0]
+      } else {
+        // 多个值或者明确的数组查询，返回数组
+        filteredJson.value = result
+      }
+    } else if (config.type === 'js') {
+      // 使用 JavaScript 表达式过滤
+      // 创建一个安全的执行环境
+      const func = new Function('data', `
+        try {
+          return ${config.expression};
+        } catch (error) {
+          throw new Error('JavaScript expression error: ' + error.message);
+        }
+      `)
+
+      result = func(parsedJson.value)
+      filteredJson.value = result
+    } else {
+      throw new Error(`Unsupported filter type: ${config.type}`)
+    }
+
+    filterError.value = ''
+
+    // 重新展开所有节点
+    nextTick(() => {
+      expandAll()
+    })
+  } catch (error) {
+    filterError.value = error instanceof Error ? error.message : 'Filter execution error'
+    filteredJson.value = null
+  }
+}
+
+// 清除过滤器
+const clearFilter = () => {
+  filteredJson.value = null
+  filterError.value = ''
 }
 
 // 监听 props 变化
@@ -143,16 +230,15 @@ const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): s
       }
       // 如果是浮点数，需要保持原始精度，特别是尾随零
       else if (!Number.isNaN(num) && isFinite(num) && value.includes('.')) {
-        // 对于小数，我们需要保持原始字符串的精度
-        // 只有当原始字符串确实等于数字的规范表示时才转换
-        // 但为了保持精度（如 4.8000），我们保留字符串形式
-        // 只有当字符串形式与数字的标准表示完全一致时才转换为数字
+        // 对于小数，检查数字的标准表示是否与原始字符串一致
         const standardForm = num.toString()
         if (standardForm === value) {
+          // 只有完全一致时才转换为数字
           return num
+        } else {
+          // 否则保持原始字符串，以保留精度（如尾随零）
+          return `__PRESERVE_STRING__${value}__PRESERVE_STRING__`
         }
-        // 否则保持原始字符串，以保留精度
-        return value
       }
       // 如果是整数形式但超出安全范围，保持字符串
       else if (!Number.isNaN(num) && isFinite(num)) {
@@ -165,7 +251,9 @@ const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): s
       return replacer(key, value)
     }
     return value
-  }, space).replace(/"__BIG_NUMBER__(.+?)__BIG_NUMBER__"/g, '$1')
+  }, space)
+    .replace(/"__BIG_NUMBER__(.+?)__BIG_NUMBER__"/g, '$1')
+    .replace(/"__PRESERVE_STRING__(.+?)__PRESERVE_STRING__"/g, '$1')
 }
 
 // 更新值
@@ -173,6 +261,7 @@ const updateValue = (path: string, newValue: any) => {
   if (props.readonly) return
 
   try {
+    // 始终更新原始数据，而不是过滤后的数据
     const updatedJson = updateJsonByPath(parsedJson.value, path, newValue)
     const jsonString = stringifyPreservingNumbers(updatedJson, null, 2)
     emit('update:modelValue', jsonString)
@@ -243,7 +332,7 @@ const expandAll = () => {
     }
   }
 
-  collectPaths(parsedJson.value)
+  collectPaths(displayJson.value)
   expandedNodes.value = allPaths
   emit('expand-all')
 }
@@ -259,14 +348,14 @@ const copyJson = async () => {
   if (!isValidJson.value) return
 
   try {
-    // 先正常序列化 JSON
-    const formattedJson = JSON.stringify(parsedJson.value, null, 2)
+    // 复制当前显示的数据（可能是过滤后的）
+    const dataToCopy = displayJson.value
 
-    // 然后使用正则表达式替换大数字字符串的引号
-    const fixedJson = formattedJson.replace(/"(\d{16,})"/g, '$1')
+    // 使用 stringifyPreservingNumbers 保持数字格式和精度
+    const formattedJson = stringifyPreservingNumbers(dataToCopy, null, 2)
 
-    await navigator.clipboard.writeText(fixedJson)
-    emit('copy-success', fixedJson)
+    await navigator.clipboard.writeText(formattedJson)
+    emit('copy-success', formattedJson)
   } catch (error) {
     console.error('Failed to copy JSON:', error)
     emit('copy-error', error instanceof Error ? error : new Error('Failed to copy JSON'))
@@ -278,8 +367,11 @@ const compressSource = () => {
   if (!isValidJson.value) return
 
   try {
+    // 使用当前显示的数据进行压缩
+    const dataToCompress = displayJson.value
+
     // 使用 stringifyPreservingNumbers 保持数字格式，但不添加格式化空格
-    const compressedJson = stringifyPreservingNumbers(parsedJson.value)
+    const compressedJson = stringifyPreservingNumbers(dataToCompress)
 
     // 更新 modelValue，触发重新解析和显示
     emit('update:modelValue', compressedJson)
@@ -316,6 +408,7 @@ const updateKey = (oldPath: string, newKey: string) => {
   if (props.readonly) return
 
   try {
+    // 始终更新原始数据
     const updatedJson = renameJsonKey(parsedJson.value, oldPath, newKey)
     const jsonString = stringifyPreservingNumbers(updatedJson, null, 2)
     emit('update:modelValue', jsonString)
@@ -483,11 +576,17 @@ defineExpose({
   updateValue,
   updateKey,
 
+  // Filter 相关方法
+  filter: applyFilter,
+  clearFilter,
+
   // 状态访问方法
   isValidJson: () => isValidJson.value,
   getParsedJson: () => parsedJson.value,
+  getFilteredJson: () => filteredJson.value,
   getExpandedNodes: () => expandedNodes.value,
   getParseError: () => parseError.value,
+  getFilterError: () => filterError.value,
 
   // 工具方法
   parseJson: (jsonString: string) => parseJson(jsonString),

@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      dts({ insertTypesEntry: true, outputDir: 'dist' })
+      dts({ insertTypesEntry: true, outDir: 'dist' })
     ],
     build: isLib ? {
       lib: {

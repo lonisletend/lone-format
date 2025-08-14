@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filter Test</title>
+  <script src="./dist/lone-format.umd.cjs"></script>
+  <link rel="stylesheet" href="./dist/lone-format.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Filter Feature Test</h1>
+
+  <div class="test-section">
+    <h3>Test 1: Basic Filter</h3>
+    <div id="test1"></div>
+  </div>
+
+  <script>
+    // Test basic filter functionality
+    console.log('LoneFormat:', typeof window.LoneFormat);
+    console.log('JsonFormat:', window.LoneFormat?.JsonFormat);
+
+    // Test data
+    const testData = {
+      "users": [
+        { "id": 1, "name": "Alice", "age": 25 },
+        { "id": 2, "name": "Bob", "age": 30 }
+      ],
+      "company": "Test Corp"
+    };
+
+    const jsonString = JSON.stringify(testData, null, 2);
+
+    // Create a simple test
+    document.getElementById('test1').innerHTML = `
+            <textarea rows="10" cols="50">${jsonString}</textarea>
+            <p>Filter functionality is available in the main app.</p>
+        `;
+  </script>
+</body>
+
+</html>

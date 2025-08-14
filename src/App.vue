@@ -8,6 +8,12 @@ import type { JsonFormatExposed } from './components/JsonFormat/types'
 const jsonFormatRef = ref<JsonFormatExposed>()
 const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
+const filterTestRef = ref<JsonFormatExposed>()
+
+// Filter 测试相关
+const filterType = ref<'jsonpath' | 'js' | ''>('')
+const filterExpression = ref('')
+const filterTestJson = ref('')
 
 // 操作反馈消息
 const message = ref('')
@@ -60,6 +66,69 @@ const showMessage = (msg: string, type: 'success' | 'error' | 'info') => {
     message.value = ''
   }, 3000)
 }
+
+// Filter 相关操作
+const applyFilter = () => {
+  if (filterType.value && filterExpression.value.trim()) {
+    const config = {
+      type: filterType.value as 'jsonpath' | 'js',
+      expression: filterExpression.value.trim()
+    }
+
+    // 调用组件的 filter 方法
+    filterTestRef.value?.filter(config)
+
+    showMessage(`已应用 ${filterType.value} 过滤器`, 'info')
+  } else {
+    showMessage('请选择过滤类型并输入表达式', 'error')
+  }
+}
+
+const clearFilter = () => {
+  filterType.value = ''
+  filterExpression.value = ''
+
+  // 调用组件的 clearFilter 方法
+  filterTestRef.value?.clearFilter()
+
+  showMessage('已清除过滤器', 'info')
+}
+
+const loadFilterSampleData = () => {
+  const sampleData = {
+    "users": [
+      { "id": 1, "name": "Alice", "age": 25, "department": "Engineering", "active": true },
+      { "id": 2, "name": "Bob", "age": 30, "department": "Marketing", "active": false },
+      { "id": 3, "name": "Charlie", "age": 35, "department": "Engineering", "active": true },
+      { "id": 4, "name": "Diana", "age": 28, "department": "Sales", "active": true }
+    ],
+    "departments": {
+      "Engineering": { "budget": 100000, "headCount": 15 },
+      "Marketing": { "budget": 50000, "headCount": 8 },
+      "Sales": { "budget": 75000, "headCount": 12 }
+    },
+    "company": {
+      "name": "Tech Corp",
+      "founded": 2010,
+      "revenue": 5000000
+    }
+  }
+
+  filterTestJson.value = JSON.stringify(sampleData, null, 2)
+  showMessage('已加载示例数据', 'success')
+}
+
+const getFilterPlaceholder = () => {
+  if (filterType.value === 'jsonpath') {
+    return '例如: $.users[*].name 或 $.departments.Engineering'
+  } else if (filterType.value === 'js') {
+    return '例如: data.users.filter(u => u.age > 30) 或 data.company.name'
+  }
+  return '选择过滤类型后输入表达式'
+}
+
+// 初始化过滤器测试数据
+loadFilterSampleData()
 
 // JsonFormat 示例数据 - 大型 JSON 测试性能
 const sampleJson = ref(`{
@@ -218,6 +287,9 @@ const activeTab = ref('interactive')
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'complex' }]" @click="activeTab = 'complex'">
             🌐 Complex Structure
           </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'filter' }]" @click="activeTab = 'filter'">
+            🔍 Filter Test
+          </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'invalid' }]" @click="activeTab = 'invalid'">
             ❌ Invalid JSON
           </button>
@@ -284,6 +356,73 @@ const activeTab = ref('interactive')
                 📄 复制复杂 JSON
               </button>
             </div>
+          </div>
+
+          <!-- Filter Test Tab -->
+          <div v-show="activeTab === 'filter'" class="component-item">
+            <h3>🔍 Filter Functionality Test</h3>
+            <p class="description">
+              Test the new Filter functionality that supports JSONPath and JavaScript expressions.
+              Apply filters to extract specific data from the JSON structure.
+            </p>
+
+            <!-- Filter Controls -->
+            <div class="filter-controls">
+              <div class="control-row">
+                <label for="filterType">Filter Type:</label>
+                <select id="filterType" v-model="filterType" class="control-input">
+                  <option value="">No Filter</option>
+                  <option value="jsonpath">JSONPath</option>
+                  <option value="js">JavaScript Expression</option>
+                </select>
+              </div>
+
+              <div class="control-row">
+                <label for="filterExpression">Filter Expression:</label>
+                <input type="text" id="filterExpression" v-model="filterExpression"
+                  :placeholder="getFilterPlaceholder()" class="control-input" @keyup.enter="applyFilter" />
+              </div>
+
+              <div class="control-actions">
+                <button @click="applyFilter" class="custom-btn custom-btn--primary">
+                  🔍 Apply Filter
+                </button>
+                <button @click="clearFilter" class="custom-btn">
+                  🗑️ Clear Filter
+                </button>
+                <button @click="loadFilterSampleData" class="custom-btn custom-btn--secondary">
+                  📝 Load Sample Data
+                </button>
+              </div>
+            </div>
+
+            <!-- Filter Examples -->
+            <div class="filter-examples">
+              <h4>📚 Example Expressions:</h4>
+              <div class="examples-grid">
+                <div class="example-item">
+                  <strong>JSONPath Examples:</strong>
+                  <ul>
+                    <li><code>$.users[*].name</code> - All user names</li>
+                    <li><code>$.users[?(@.age > 30)]</code> - Users older than 30</li>
+                    <li><code>$.departments.Engineering</code> - Engineering department</li>
+                    <li><code>$.users[0]</code> - First user</li>
+                  </ul>
+                </div>
+                <div class="example-item">
+                  <strong>JavaScript Examples:</strong>
+                  <ul>
+                    <li><code>data.users.filter(u => u.active)</code> - Active users</li>
+                    <li><code>data.company.name</code> - Company name</li>
+                    <li><code>data.users.map(u => u.name)</code> - User names array</li>
+                    <li><code>data.users.length</code> - Number of users</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- JSON Display -->
+            <JsonFormat ref="filterTestRef" v-model="filterTestJson" />
           </div>
 
           <!-- Invalid JSON Tab -->
@@ -867,6 +1006,137 @@ const activeTab = ref('interactive')
     font-size: 13px;
     flex: 1;
     min-width: auto;
+  }
+}
+
+/* Filter Controls 样式 */
+.filter-controls {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.control-row label {
+  font-weight: 600;
+  color: #495057;
+  min-width: 140px;
+  text-align: right;
+}
+
+.control-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+.control-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+}
+
+.control-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.custom-btn--secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.custom-btn--secondary:hover {
+  background: #5a6268;
+}
+
+/* Filter Examples 样式 */
+.filter-examples {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
+}
+
+.filter-examples h4 {
+  margin: 0 0 16px 0;
+  color: #1976d2;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.examples-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.example-item {
+  background: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #bbdefb;
+}
+
+.example-item strong {
+  display: block;
+  margin-bottom: 12px;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.example-item ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.example-item li {
+  margin: 8px 0;
+  color: #495057;
+}
+
+.example-item code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  color: #d63384;
+}
+
+/* 移动端 Filter 响应式 */
+@media (max-width: 768px) {
+  .examples-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .control-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .control-row label {
+    text-align: left;
+    min-width: auto;
+    margin-bottom: 8px;
+  }
+
+  .control-actions {
+    justify-content: center;
   }
 }
 </style>
