@@ -1,0 +1,52 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - publish  # 只在 publish 分支推送时触发
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 需要完整历史，后面合并 main 会用到
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version
+        run: |
+          npm version patch -m "chore(release): %s"
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+
+      - name: Build library
+        run: npm run build:lib
+
+      - name: Publish to npm
+        run: npm run publish:lib
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Push version bump commit to publish branch
+        run: |
+          git push origin publish
+
+      - name: Merge publish back to main
+        run: |
+          git checkout main
+          git merge publish --no-ff -m "chore(sync): merge publish back to main"
+          git push origin main
