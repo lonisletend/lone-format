@@ -15,6 +15,11 @@ on:
           - minor
           - major
 
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -24,7 +29,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: publish
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ github.token }}
         fetch-depth: 0
 
     - name: Setup Node.js
@@ -67,70 +72,27 @@ jobs:
         echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
         echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-    - name: Build library
-      run: |
-        echo "Building library..."
-        # Try multiple build approaches
-        if npm run build:lib; then
-          echo "✅ Built successfully with npm script"
-        elif npx --yes vite@7.0.4 build --mode lib; then
-          echo "✅ Built successfully with npx vite"
-        else
-          echo "⚠️ Build failed, creating fallback build..."
-          mkdir -p dist
-          
-          # Create fallback build files
-          cat > dist/lone-format.js << 'EOF'
-// Lone Format Library - ES Module
-export { default as JsonFormat } from './components/JsonFormat/index.vue';
-export default { install(app) { /* Vue plugin install */ } };
-EOF
-          
-          cat > dist/lone-format.umd.cjs << 'EOF'
-// Lone Format Library - UMD
-(function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-  typeof define === 'function' && define.amd ? define(['exports'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.LoneFormat = {}));
-})(this, (function (exports) { 
-  'use strict';
-  exports.JsonFormat = {};
-  exports.default = { install() {} };
-}));
-EOF
-          
-          cat > dist/index.d.ts << 'EOF'
-import type { App } from 'vue';
-export declare const JsonFormat: any;
-declare const _default: { install(app: App): void; };
-export default _default;
-EOF
-          
-          # Copy CSS if it exists
-          if [ -f "src/style.css" ]; then
-            cp src/style.css dist/lone-format.css
-          else
-            echo "/* Lone Format Styles */" > dist/lone-format.css
-          fi
-          
-          echo "✅ Fallback build created"
-        fi
-
-    - name: Publish to npm
-      run: npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
     - name: Commit version bump
       run: |
         git add package.json package-lock.json
         git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }} [skip ci]"
         git push origin publish
 
+    - name: Build library
+      run: |
+        echo "Building library..."
+        npm run build:lib
+
+    - name: Publish to npm
+      run: npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
     - name: Create Pull Request to main
+      id: create_pr
       uses: peter-evans/create-pull-request@v5
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ github.token }}
         push-to-fork: false
         branch: publish
         base: main
@@ -149,11 +111,12 @@ EOF
         delete-branch: false
 
     - name: Auto-merge PR
-      uses: peter-evans/enable-pull-request-automerge@v3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
-        merge-method: squash
+      if: steps.create_pr.outputs.pull-request-number != ''
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        echo "Enabling auto-merge for PR #${{ steps.create_pr.outputs.pull-request-number }}"
+        gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --squash --auto
 
   notify:
     needs: publish
