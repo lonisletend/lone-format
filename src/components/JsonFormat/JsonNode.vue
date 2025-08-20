@@ -28,7 +28,7 @@
         <div class="json-node__children-content">
           <div v-for="(childValue, childKey) in value" :key="childKey" class="json-node__child">
             <JsonNode :value="childValue" :key-name="isArray ? '' : String(childKey)" :level="level + 1"
-              :path="childPath(String(childKey))" :expanded="expanded"
+              :path="childPath(String(childKey))" :expanded="expanded" :theme="theme"
               @update:value="(path, newValue) => $emit('update:value', path, newValue)"
               @toggle-expand="(path) => $emit('toggle-expand', path)" @copy="(value) => $emit('copy', value)"
               @update:key="(oldPath, newKey) => $emit('update:key', oldPath, newKey)"
@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue'
+import type { ThemeConfig } from './types'
 
 interface Props {
   value: any
@@ -72,6 +73,7 @@ interface Props {
   path?: string
   expanded: Set<string>
   isLast?: boolean
+  theme: ThemeConfig
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -328,75 +330,66 @@ defineOptions({
 
 <style scoped>
 .json-node {
-  font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
-}
-
-.json-node__container {
-  display: block;
+  position: relative;
 }
 
 .json-node__line {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   margin-left: calc(v-bind(level) * 20px);
-  flex-wrap: wrap;
-  max-width: 100%;
-}
-
-.json-node__child {
-  position: relative;
-  display: inline-block;
-  width: 100%;
-}
-
-.json-node__comma {
-  color: #24292f;
-  margin-left: 0;
-  display: inline;
+  line-height: 1.5;
+  min-height: 20px;
 }
 
 .json-node__primitive {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   margin-left: calc(v-bind(level) * 20px);
-  flex-wrap: wrap;
-  max-width: 100%;
+  line-height: 1.5;
+  min-height: 20px;
 }
 
 .json-node__key {
-  color: #0969da;
+  color: v-bind('theme.colors.syntaxKey');
   cursor: pointer;
-  user-select: none;
+  font-weight: 500;
+  padding: 1px 3px;
+  border-radius: 3px;
+  user-select: text;
 }
 
 .json-node__key:hover {
-  background-color: #f6f8fa;
-  border-radius: 3px;
+  background-color: v-bind('theme.colors.hoverBackground');
 }
 
 .json-node__colon {
-  color: #24292f;
-  margin: 0 4px 0 0;
+  color: v-bind('theme.colors.syntaxBracket');
+  margin: 0 4px;
 }
 
 .json-node__bracket {
-  color: #6f42c1;
-  font-weight: 600;
-  user-select: none;
+  color: v-bind('theme.colors.syntaxBracket');
+  font-weight: 500;
+  margin: 0 2px;
 }
 
 .json-node__bracket--clickable {
   cursor: pointer;
-  padding: 2px;
+  padding: 1px 3px;
   border-radius: 3px;
 }
 
 .json-node__bracket--clickable:hover {
-  background-color: #f6f8fa;
+  background-color: v-bind('theme.colors.hoverBackground');
+}
+
+.json-node__comma {
+  color: v-bind('theme.colors.syntaxBracket');
+  margin-left: 2px;
 }
 
 .json-node__collapsed {
-  color: #656d76;
+  color: v-bind('theme.colors.textSecondary');
   font-style: italic;
   margin: 0 4px;
 }
@@ -406,50 +399,51 @@ defineOptions({
   padding: 1px 3px;
   border-radius: 3px;
   user-select: text;
-  word-break: break-all;
+  word-break: normal;
   overflow-wrap: break-word;
   white-space: pre-wrap;
   max-width: 100%;
   display: inline-block;
+  text-align: left;
 }
 
 .json-node__value:hover {
-  background-color: #f6f8fa;
+  background-color: v-bind('theme.colors.hoverBackground');
 }
 
 .json-node__value--string {
-  color: #0a3069;
+  color: v-bind('theme.colors.syntaxString');
 }
 
 .json-node__value--number {
-  color: #0969da;
+  color: v-bind('theme.colors.syntaxNumber');
 }
 
 .json-node__value--boolean {
-  color: #8250df;
+  color: v-bind('theme.colors.syntaxBoolean');
   font-weight: 600;
 }
 
 .json-node__value--null {
-  color: #656d76;
+  color: v-bind('theme.colors.syntaxNull');
   font-style: italic;
 }
 
 /* 编辑状态样式 */
 .json-node__key-input,
 .json-node__value-input {
-  border: 1px solid #0969da;
+  border: 1px solid v-bind('theme.colors.syntaxNumber');
   border-radius: 3px;
   padding: 1px 3px;
   font-family: inherit;
   font-size: inherit;
   color: inherit;
-  background: #ffffff;
+  background: v-bind('theme.colors.background');
   outline: none;
 }
 
 .json-node__key-input {
-  color: #0969da;
+  color: v-bind('theme.colors.syntaxKey');
 }
 
 /* 缩进指示线 */
@@ -460,7 +454,7 @@ defineOptions({
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #d0d7de;
+  background: v-bind('theme.colors.indentLine');
   opacity: 0.5;
   pointer-events: none;
 }

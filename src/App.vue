@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
-import type { JsonFormatExposed } from './components/JsonFormat/types'
+import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
 
 
 // JsonFormat 组件引用
@@ -9,6 +9,56 @@ const jsonFormatRef = ref<JsonFormatExposed>()
 const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
 const filterTestRef = ref<JsonFormatExposed>()
+
+// 主题演示相关
+const themeDemo = ref(`{
+  "name": "🎨 主题演示",
+  "description": "这是一个展示不同主题样式的示例 JSON",
+  "features": [
+    "GitHub Light - 清晰明亮的白色主题",
+    "GitHub Dark - 专业优雅的深色主题", 
+    "Min Light - 极简轻量的明亮主题",
+    "Slack Ochin - 温暖舒适的棕色主题"
+  ],
+  "config": {
+    "theme": "dynamic",
+    "autoSwitch": true,
+    "colors": {
+      "primary": "#0366d6",
+      "secondary": "#586069",
+      "success": "#28a745",
+      "warning": "#ffd33d", 
+      "error": "#d73a49"
+    }
+  },
+  "numbers": {
+    "integer": 42,
+    "float": 3.14159,
+    "scientific": 1.23e-4,
+    "precision": 999999999999999
+  },
+  "boolean": true,
+  "null_value": null,
+  "array": ["item1", "item2", "item3"],
+  "nested": {
+    "level1": {
+      "level2": {
+        "deep": "这是一个深层嵌套的对象"
+      }
+    }
+  }
+}`)
+const selectedTheme = ref<ThemeType>('github-light')
+
+const getThemeDisplayName = (theme: ThemeType): string => {
+  const displayNames = {
+    'github-light': 'GitHub Light',
+    'github-dark': 'GitHub Dark',
+    'min-light': 'Min Light',
+    'slack-ochin': 'Slack Ochin'
+  }
+  return displayNames[theme]
+}
 
 // Filter 测试相关
 const filterType = ref<'jsonpath' | 'js' | ''>('')
@@ -264,6 +314,13 @@ const activeTab = ref('interactive')
     <header class="app-header">
       <h1>🎨 Lone Format Component Library</h1>
       <p>A Vue 3 component library demo with tree-shaking support</p>
+
+      <!-- 主题切换控制 -->
+      <!-- Theme control removed - now using tab-specific theme demo -->
+
+
+      �
+
     </header>
 
     <main class="app-main">
@@ -292,6 +349,8 @@ const activeTab = ref('interactive')
           </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'invalid' }]" @click="activeTab = 'invalid'">
             ❌ Invalid JSON
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'theme' }]" @click="activeTab = 'theme'">
           </button>
         </div>
 
@@ -472,6 +531,29 @@ const activeTab = ref('interactive')
             </div>
           </div>
 
+          <!-- Theme Demo Tab -->
+          <div v-show="activeTab === 'theme'" class="component-item">
+            <h3>🎨 主题演示</h3>
+            <p class="description">
+              展示不同主题的渲染效果。切换下方的主题选择器查看不同主题的样式。
+            </p>
+
+            <!-- 主题选择器 -->
+            <div class="theme-selector">
+              <label for="theme-select">选择主题：</label>
+              <select id="theme-select" v-model="selectedTheme" class="theme-select">
+                <option value="github-light">GitHub Light</option>
+                <option value="github-dark">GitHub Dark</option>
+                <option value="min-light">Min Light</option>
+                <option value="slack-ochin">Slack Ochin</option>
+              </select>
+              <span class="current-theme-display">当前: {{ getThemeDisplayName(selectedTheme) }}</span>
+            </div>
+
+            <!-- 主题演示的 JsonFormat 组件 -->
+            <JsonFormat v-model="themeDemo" :theme="selectedTheme" :show-toolbar="true" />
+          </div>
+
           <!-- Interactive Editor Tab -->
           <div v-show="activeTab === 'interactive'" class="component-item component-item--full">
             <h3>🚀 Interactive JSON Editor</h3>
@@ -535,9 +617,55 @@ const activeTab = ref('interactive')
 }
 
 .app-header p {
-  margin: 0;
+  margin: 0 0 20px 0;
   font-size: 1.2rem;
   opacity: 0.9;
+}
+
+.theme-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.theme-selector label {
+  font-weight: 500;
+  font-size: 14px;
+  color: #333;
+}
+
+.theme-select {
+  padding: 6px 12px;
+  border: 1px solid #d1d5da;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-select:hover {
+  border-color: #0366d6;
+}
+
+.theme-select:focus {
+  outline: none;
+  border-color: #0366d6;
+  box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+.current-theme-display {
+  font-size: 12px;
+  color: #666;
+  font-family: 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .app-main {

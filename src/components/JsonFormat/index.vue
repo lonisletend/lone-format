@@ -1,5 +1,5 @@
 <template>
-  <div class="json-format">
+  <div class="json-format" :class="`json-format--${currentTheme.name}`">
     <!-- 可选的工具栏 -->
     <div v-if="showToolbar" class="json-format__toolbar">
       <div class="json-format__actions">
@@ -43,7 +43,8 @@
 
       <div v-else class="json-format__viewer">
         <JsonNode :value="displayJson" :key-name="''" :level="0" :expanded="expandedNodes" :is-last="true"
-          @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue" @update:key="updateKey" />
+          :theme="currentTheme" @update:value="updateValue" @toggle-expand="toggleExpand" @copy="copyValue"
+          @update:key="updateKey" />
       </div>
     </div>
   </div>
@@ -53,20 +54,23 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { JSONPath } from 'jsonpath-plus'
 import JsonNode from './JsonNode.vue'
-import type { FilterConfig } from './types'
+import type { FilterConfig, ThemeType } from './types'
+import { getTheme } from './themes'
 
 interface Props {
   modelValue: string
   readonly?: boolean
   maxDepth?: number
   showToolbar?: boolean
+  theme?: ThemeType
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   readonly: false,
   maxDepth: 10,
-  showToolbar: true
+  showToolbar: true,
+  theme: 'github-light'
 })
 
 const emit = defineEmits<{
@@ -87,6 +91,9 @@ const filterError = ref<string>('')
 
 // 计算属性
 const isValidJson = computed(() => parseError.value === '')
+
+// 当前主题
+const currentTheme = computed(() => getTheme(props.theme))
 
 // 当前显示的 JSON 数据（可能是过滤后的）
 const displayJson = computed(() => {
@@ -109,11 +116,50 @@ const parseJson = (jsonString: string) => {
   try {
     let processedString = jsonString
 
-    // 处理大数字：将16位以上的数字转为字符串
-    processedString = processedString.replace(/:\s*(\d{16,})\s*([,}])/g, ': "$1"$2')
+    // 首先尝试直接解析，如果成功就不需要特殊处理
+    try {
+      parsedJson.value = JSON.parse(processedString)
+      parseError.value = ''
 
-    // 处理小数精度：将有尾随零的小数转为字符串以保持精度
-    processedString = processedString.replace(/:\s*(\d+\.\d*?0+)\s*([,}])/g, ': "$1"$2')
+      // 清除之前的过滤结果和错误
+      filteredJson.value = null
+      filterError.value = ''
+
+      // 自动展开所有层级
+      nextTick(() => {
+        if (displayJson.value !== null) {
+          expandAll()
+        }
+      })
+      return
+    } catch (directParseError) {
+      // 如果直接解析失败，尝试特殊处理
+    }
+
+    // 一个更安全的方法：先分割字符串，然后只处理非字符串部分
+    // 这里我们使用一个简单的状态机来跟踪是否在字符串内部
+    const chars = processedString.split('')
+    let inString = false
+    let escaped = false
+
+    for (let i = 0; i < chars.length; i++) {
+      if (chars[i] === '\\' && inString) {
+        escaped = !escaped
+      } else if (chars[i] === '"' && !escaped) {
+        inString = !inString
+      } else {
+        escaped = false
+      }
+    }
+
+    // 如果字符串结构正常，应用原来的处理逻辑
+    if (!inString) {
+      // 处理大数字：将16位以上的数字转为字符串
+      processedString = processedString.replace(/:\s*(\d{16,})\s*([,}\]])/g, ': "$1"$2')
+
+      // 处理小数精度：将有尾随零的小数转为字符串以保持精度
+      processedString = processedString.replace(/:\s*(\d+\.\d*?0+)\s*([,}\]])/g, ': "$1"$2')
+    }
 
     parsedJson.value = JSON.parse(processedString)
     parseError.value = ''
@@ -596,12 +642,13 @@ defineExpose({
 
 <style scoped>
 .json-format {
-  border: 1px solid #d0d7de;
+  border: 1px solid v-bind('currentTheme.colors.border');
   border-radius: 6px;
-  background: #ffffff;
+  background: v-bind('currentTheme.colors.background');
   font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
   font-size: 14px;
   line-height: 1.45;
+  color: v-bind('currentTheme.colors.text');
 }
 
 .json-format__toolbar {
@@ -609,8 +656,8 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #f6f8fa;
-  border-bottom: 1px solid #d0d7de;
+  background: v-bind('currentTheme.colors.surfaceBackground');
+  border-bottom: 1px solid v-bind('currentTheme.colors.border');
   border-radius: 6px 6px 0 0;
 }
 
@@ -621,18 +668,18 @@ defineExpose({
 
 .json-format__btn {
   padding: 4px 8px;
-  border: 1px solid #d0d7de;
+  border: 1px solid v-bind('currentTheme.colors.buttonBorder');
   border-radius: 6px;
-  background: #f6f8fa;
-  color: #24292f;
+  background: v-bind('currentTheme.colors.buttonBackground');
+  color: v-bind('currentTheme.colors.buttonText');
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .json-format__btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #d0d7de;
+  background: v-bind('currentTheme.colors.buttonBackgroundHover');
+  border-color: v-bind('currentTheme.colors.buttonBorder');
 }
 
 .json-format__btn:disabled {
@@ -641,18 +688,18 @@ defineExpose({
 }
 
 .json-format__btn--primary {
-  background: #2da44e;
+  background: v-bind('currentTheme.colors.buttonPrimary');
   color: white;
-  border-color: #2da44e;
+  border-color: v-bind('currentTheme.colors.buttonPrimary');
 }
 
 .json-format__btn--primary:hover:not(:disabled) {
-  background: #2c974b;
+  background: v-bind('currentTheme.colors.buttonPrimaryHover');
 }
 
 .json-format__btn--secondary {
-  background: #ffffff;
-  border-color: #d0d7de;
+  background: v-bind('currentTheme.colors.background');
+  border-color: v-bind('currentTheme.colors.border');
 }
 
 .json-format__info {
@@ -668,13 +715,13 @@ defineExpose({
 }
 
 .json-format__status--success {
-  background: #dafbe1;
-  color: #1a7f37;
+  background: v-bind('currentTheme.colors.successBackground');
+  color: v-bind('currentTheme.colors.success');
 }
 
 .json-format__status--error {
-  background: #ffebe9;
-  color: #cf222e;
+  background: v-bind('currentTheme.colors.errorBackground');
+  color: v-bind('currentTheme.colors.error');
 }
 
 .json-format__content {
@@ -684,9 +731,9 @@ defineExpose({
 }
 
 .json-format__error {
-  color: #cf222e;
-  background: #ffebe9;
-  border: 1px solid #ff818266;
+  color: v-bind('currentTheme.colors.error');
+  background: v-bind('currentTheme.colors.errorBackground');
+  border: 1px solid v-bind('currentTheme.colors.error') + '66';
   border-radius: 6px;
   padding: 8px 16px 8px 16px;
 }
@@ -705,7 +752,7 @@ defineExpose({
 }
 
 .json-format__viewer {
-  color: #24292f;
+  color: v-bind('currentTheme.colors.text');
 }
 
 /* 滚动条样式 */
@@ -715,15 +762,15 @@ defineExpose({
 }
 
 .json-format__content::-webkit-scrollbar-track {
-  background: #f6f8fa;
+  background: v-bind('currentTheme.colors.scrollbarTrack');
 }
 
 .json-format__content::-webkit-scrollbar-thumb {
-  background: #d0d7de;
-  border-radius: px;
+  background: v-bind('currentTheme.colors.scrollbarThumb');
+  border-radius: 2px;
 }
 
 .json-format__content::-webkit-scrollbar-thumb:hover {
-  background: #afb8c1;
+  background: v-bind('currentTheme.colors.scrollbarThumbHover');
 }
 </style>
