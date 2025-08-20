@@ -116,11 +116,50 @@ const parseJson = (jsonString: string) => {
   try {
     let processedString = jsonString
 
-    // 处理大数字：将16位以上的数字转为字符串
-    processedString = processedString.replace(/:\s*(\d{16,})\s*([,}])/g, ': "$1"$2')
+    // 首先尝试直接解析，如果成功就不需要特殊处理
+    try {
+      parsedJson.value = JSON.parse(processedString)
+      parseError.value = ''
 
-    // 处理小数精度：将有尾随零的小数转为字符串以保持精度
-    processedString = processedString.replace(/:\s*(\d+\.\d*?0+)\s*([,}])/g, ': "$1"$2')
+      // 清除之前的过滤结果和错误
+      filteredJson.value = null
+      filterError.value = ''
+
+      // 自动展开所有层级
+      nextTick(() => {
+        if (displayJson.value !== null) {
+          expandAll()
+        }
+      })
+      return
+    } catch (directParseError) {
+      // 如果直接解析失败，尝试特殊处理
+    }
+
+    // 一个更安全的方法：先分割字符串，然后只处理非字符串部分
+    // 这里我们使用一个简单的状态机来跟踪是否在字符串内部
+    const chars = processedString.split('')
+    let inString = false
+    let escaped = false
+
+    for (let i = 0; i < chars.length; i++) {
+      if (chars[i] === '\\' && inString) {
+        escaped = !escaped
+      } else if (chars[i] === '"' && !escaped) {
+        inString = !inString
+      } else {
+        escaped = false
+      }
+    }
+
+    // 如果字符串结构正常，应用原来的处理逻辑
+    if (!inString) {
+      // 处理大数字：将16位以上的数字转为字符串
+      processedString = processedString.replace(/:\s*(\d{16,})\s*([,}\]])/g, ': "$1"$2')
+
+      // 处理小数精度：将有尾随零的小数转为字符串以保持精度
+      processedString = processedString.replace(/:\s*(\d+\.\d*?0+)\s*([,}\]])/g, ': "$1"$2')
+    }
 
     parsedJson.value = JSON.parse(processedString)
     parseError.value = ''
