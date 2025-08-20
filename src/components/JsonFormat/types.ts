@@ -6,7 +6,7 @@ export type FilterType = 'jsonpath' | 'js'
 /**
  * 主题类型枚举
  */
-export type ThemeType = 'github-light' | 'github-dark'
+export type ThemeType = 'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'
 
 /**
  * Filter 配置接口
@@ -106,7 +106,6 @@ export interface JsonFormatProps {
   maxDepth?: number
   showToolbar?: boolean
   theme?: ThemeType
-}
 }
 
 /**

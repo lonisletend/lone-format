@@ -10,12 +10,54 @@ const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
 const filterTestRef = ref<JsonFormatExposed>()
 
-// 主题切换功能
-const currentTheme = ref<ThemeType>('github-light')
+// 主题演示相关
+const themeDemo = ref(`{
+  "name": "🎨 主题演示",
+  "description": "这是一个展示不同主题样式的示例 JSON",
+  "features": [
+    "GitHub Light - 清晰明亮的白色主题",
+    "GitHub Dark - 专业优雅的深色主题", 
+    "Min Light - 极简轻量的明亮主题",
+    "Slack Ochin - 温暖舒适的棕色主题"
+  ],
+  "config": {
+    "theme": "dynamic",
+    "autoSwitch": true,
+    "colors": {
+      "primary": "#0366d6",
+      "secondary": "#586069",
+      "success": "#28a745",
+      "warning": "#ffd33d", 
+      "error": "#d73a49"
+    }
+  },
+  "numbers": {
+    "integer": 42,
+    "float": 3.14159,
+    "scientific": 1.23e-4,
+    "precision": 999999999999999
+  },
+  "boolean": true,
+  "null_value": null,
+  "array": ["item1", "item2", "item3"],
+  "nested": {
+    "level1": {
+      "level2": {
+        "deep": "这是一个深层嵌套的对象"
+      }
+    }
+  }
+}`)
+const selectedTheme = ref<ThemeType>('github-light')
 
-const toggleTheme = () => {
-  currentTheme.value = currentTheme.value === 'github-light' ? 'github-dark' : 'github-light'
-  showMessage(`已切换到 ${currentTheme.value} 主题`, 'info')
+const getThemeDisplayName = (theme: ThemeType): string => {
+  const displayNames = {
+    'github-light': 'GitHub Light',
+    'github-dark': 'GitHub Dark',
+    'min-light': 'Min Light',
+    'slack-ochin': 'Slack Ochin'
+  }
+  return displayNames[theme]
 }
 
 // Filter 测试相关
@@ -274,13 +316,11 @@ const activeTab = ref('interactive')
       <p>A Vue 3 component library demo with tree-shaking support</p>
 
       <!-- 主题切换控制 -->
-      <div class="theme-control">
-        <label>主题:</label>
-        <button @click="toggleTheme" :class="['theme-toggle', `theme-toggle--${currentTheme}`]">
-          {{ currentTheme === 'github-light' ? '🌙 切换到深色主题' : '☀️ 切换到浅色主题' }}
-        </button>
-        <span class="current-theme">当前: {{ currentTheme }}</span>
-      </div>
+      <!-- Theme control removed - now using tab-specific theme demo -->
+
+
+      �
+
     </header>
 
     <main class="app-main">
@@ -310,6 +350,8 @@ const activeTab = ref('interactive')
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'invalid' }]" @click="activeTab = 'invalid'">
             ❌ Invalid JSON
           </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'theme' }]" @click="activeTab = 'theme'">
+          </button>
         </div>
 
         <!-- Tab 内容 -->
@@ -322,7 +364,7 @@ const activeTab = ref('interactive')
               nested objects, arrays, and different data types. Click on brackets to expand/collapse,
               and click on values to edit them.
             </p>
-            <JsonFormat ref="jsonFormatRef" v-model="sampleJson" :theme="currentTheme" />
+            <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
           </div>
 
           <!-- Custom Control Tab -->
@@ -355,7 +397,7 @@ const activeTab = ref('interactive')
             </div>
 
             <!-- 无工具栏的 JsonFormat -->
-            <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" :theme="currentTheme" />
+            <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" />
           </div>
 
           <!-- Complex Structure Tab -->
@@ -365,7 +407,7 @@ const activeTab = ref('interactive')
               A more complex example with deeply nested objects and arrays.
               Test the collapsible functionality and value editing.
             </p>
-            <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" :theme="currentTheme" />
+            <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" />
 
             <!-- 另一组自定义按钮 -->
             <div class="custom-controls" style="margin-top: 16px;">
@@ -439,7 +481,7 @@ const activeTab = ref('interactive')
             </div>
 
             <!-- JSON Display -->
-            <JsonFormat ref="filterTestRef" v-model="filterTestJson" :theme="currentTheme" />
+            <JsonFormat ref="filterTestRef" v-model="filterTestJson" />
           </div>
 
           <!-- Invalid JSON Tab -->
@@ -449,7 +491,7 @@ const activeTab = ref('interactive')
               This example shows how the component handles invalid JSON with proper error display.
               The component gracefully handles syntax errors and provides helpful feedback.
             </p>
-            <JsonFormat v-model="invalidJson" :theme="currentTheme" />
+            <JsonFormat v-model="invalidJson" />
 
             <!-- 添加无效JSON的说明和示例 -->
             <div class="invalid-json-info">
@@ -489,6 +531,29 @@ const activeTab = ref('interactive')
             </div>
           </div>
 
+          <!-- Theme Demo Tab -->
+          <div v-show="activeTab === 'theme'" class="component-item">
+            <h3>🎨 主题演示</h3>
+            <p class="description">
+              展示不同主题的渲染效果。切换下方的主题选择器查看不同主题的样式。
+            </p>
+
+            <!-- 主题选择器 -->
+            <div class="theme-selector">
+              <label for="theme-select">选择主题：</label>
+              <select id="theme-select" v-model="selectedTheme" class="theme-select">
+                <option value="github-light">GitHub Light</option>
+                <option value="github-dark">GitHub Dark</option>
+                <option value="min-light">Min Light</option>
+                <option value="slack-ochin">Slack Ochin</option>
+              </select>
+              <span class="current-theme-display">当前: {{ getThemeDisplayName(selectedTheme) }}</span>
+            </div>
+
+            <!-- 主题演示的 JsonFormat 组件 -->
+            <JsonFormat v-model="themeDemo" :theme="selectedTheme" :show-toolbar="true" />
+          </div>
+
           <!-- Interactive Editor Tab -->
           <div v-show="activeTab === 'interactive'" class="component-item component-item--full">
             <h3>🚀 Interactive JSON Editor</h3>
@@ -513,7 +578,7 @@ const activeTab = ref('interactive')
                   <span class="panel-info">格式化预览 (可编辑)</span>
                 </div>
                 <div class="json-format-wrapper">
-                  <JsonFormat v-model="interactiveJson" :theme="currentTheme" />
+                  <JsonFormat v-model="interactiveJson" />
                 </div>
               </div>
             </div>
@@ -557,55 +622,48 @@ const activeTab = ref('interactive')
   opacity: 0.9;
 }
 
-.theme-control {
+.theme-selector {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
-  margin-top: 20px;
-  padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.1);
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  backdrop-filter: blur(10px);
 }
 
-.theme-control label {
+.theme-selector label {
   font-weight: 500;
   font-size: 14px;
+  color: #333;
 }
 
-.theme-toggle {
-  padding: 8px 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+.theme-select {
+  padding: 6px 12px;
+  border: 1px solid #d1d5da;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: white;
   font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(5px);
+  transition: all 0.2s ease;
 }
 
-.theme-toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-1px);
+.theme-select:hover {
+  border-color: #0366d6;
 }
 
-.theme-toggle--github-light {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.theme-select:focus {
+  outline: none;
+  border-color: #0366d6;
+  box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
 }
 
-.theme-toggle--github-dark {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.current-theme {
+.current-theme-display {
   font-size: 12px;
-  opacity: 0.8;
+  color: #666;
   font-family: 'Courier New', monospace;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.05);
   padding: 4px 8px;
   border-radius: 4px;
 }

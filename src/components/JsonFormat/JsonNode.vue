@@ -335,7 +335,7 @@ defineOptions({
 
 .json-node__line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-left: calc(v-bind(level) * 20px);
   line-height: 1.5;
   min-height: 20px;
@@ -343,7 +343,7 @@ defineOptions({
 
 .json-node__primitive {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-left: calc(v-bind(level) * 20px);
   line-height: 1.5;
   min-height: 20px;
@@ -399,11 +399,12 @@ defineOptions({
   padding: 1px 3px;
   border-radius: 3px;
   user-select: text;
-  word-break: break-all;
+  word-break: normal;
   overflow-wrap: break-word;
   white-space: pre-wrap;
   max-width: 100%;
   display: inline-block;
+  text-align: left;
 }
 
 .json-node__value:hover {
