@@ -94,6 +94,15 @@ jobs:
       run: |
         echo "Creating PR to merge publish to main..."
         
+        # Ensure we're on the publish branch
+        git checkout publish
+        
+        # Check if there are differences between publish and main
+        if git diff --quiet origin/main..publish; then
+          echo "No differences between publish and main, skipping PR creation"
+          exit 0
+        fi
+        
         # Create PR using GitHub CLI
         PR_URL=$(gh pr create \
           --title "chore: release v${{ steps.bump_version.outputs.new_version }}" \
@@ -108,17 +117,26 @@ jobs:
         ### Auto-merge
         This PR will be automatically merged." \
           --base main \
-          --head publish)
+          --head publish 2>/dev/null || echo "PR creation failed, trying alternative method...")
         
-        echo "PR created: $PR_URL"
-        
-        # Extract PR number from URL
-        PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]\+$')
-        echo "PR Number: $PR_NUMBER"
-        
-        # Enable auto-merge and merge immediately
-        echo "Auto-merging PR #$PR_NUMBER..."
-        gh pr merge $PR_NUMBER --squash --auto || gh pr merge $PR_NUMBER --squash
+        if [ -n "$PR_URL" ]; then
+          echo "PR created: $PR_URL"
+          
+          # Extract PR number from URL
+          PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]\+$')
+          echo "PR Number: $PR_NUMBER"
+          
+          # Enable auto-merge and merge immediately
+          echo "Auto-merging PR #$PR_NUMBER..."
+          gh pr merge $PR_NUMBER --squash --auto || gh pr merge $PR_NUMBER --squash
+        else
+          echo "Failed to create PR, attempting direct merge..."
+          # Alternative: directly merge publish to main
+          git checkout main
+          git pull origin main
+          git merge publish --no-ff -m "chore: release v${{ steps.bump_version.outputs.new_version }}"
+          git push origin main
+        fi
 
   notify:
     needs: publish
