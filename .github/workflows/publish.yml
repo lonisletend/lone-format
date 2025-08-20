@@ -88,35 +88,37 @@ jobs:
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-    - name: Create Pull Request to main
-      id: create_pr
-      uses: peter-evans/create-pull-request@v5
-      with:
-        token: ${{ github.token }}
-        push-to-fork: false
-        branch: publish
-        base: main
-        title: "chore: release v${{ steps.bump_version.outputs.new_version }}"
-        body: |
-          ## 🚀 Release v${{ steps.bump_version.outputs.new_version }}
-          
-          This PR merges the publish branch to main after successful npm publication.
-          
-          ### Changes
-          - Version bumped from `${{ steps.bump_version.outputs.old_version }}` to `${{ steps.bump_version.outputs.new_version }}`
-          - Package published to npm successfully
-          
-          ### Auto-merge
-          This PR will be automatically merged after CI checks pass.
-        delete-branch: false
-
-    - name: Auto-merge PR
-      if: steps.create_pr.outputs.pull-request-number != ''
+    - name: Create and merge PR to main
       env:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
-        echo "Enabling auto-merge for PR #${{ steps.create_pr.outputs.pull-request-number }}"
-        gh pr merge ${{ steps.create_pr.outputs.pull-request-number }} --squash --auto
+        echo "Creating PR to merge publish to main..."
+        
+        # Create PR using GitHub CLI
+        PR_URL=$(gh pr create \
+          --title "chore: release v${{ steps.bump_version.outputs.new_version }}" \
+          --body "## 🚀 Release v${{ steps.bump_version.outputs.new_version }}
+
+        This PR merges the publish branch to main after successful npm publication.
+
+        ### Changes
+        - Version bumped from \`${{ steps.bump_version.outputs.old_version }}\` to \`${{ steps.bump_version.outputs.new_version }}\`
+        - Package published to npm successfully
+
+        ### Auto-merge
+        This PR will be automatically merged." \
+          --base main \
+          --head publish)
+        
+        echo "PR created: $PR_URL"
+        
+        # Extract PR number from URL
+        PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]\+$')
+        echo "PR Number: $PR_NUMBER"
+        
+        # Enable auto-merge and merge immediately
+        echo "Auto-merging PR #$PR_NUMBER..."
+        gh pr merge $PR_NUMBER --squash --auto || gh pr merge $PR_NUMBER --squash
 
   notify:
     needs: publish
