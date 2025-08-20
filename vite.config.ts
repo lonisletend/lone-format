@@ -10,8 +10,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      dts({ insertTypesEntry: true, outDir: 'dist' })
-    ],
+      isLib ? dts({ 
+        insertTypesEntry: true, 
+        outDir: 'dist',
+        skipDiagnostics: true // Skip TypeScript diagnostics for faster builds
+      }) : undefined
+    ].filter(Boolean),
     build: isLib ? {
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),
@@ -26,7 +30,9 @@ export default defineConfig(({ mode }) => {
             vue: 'Vue'
           }
         }
-      }
+      },
+      // Ensure dist directory is cleaned
+      emptyOutDir: true
     } : undefined
   }
 })
