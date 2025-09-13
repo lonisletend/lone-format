@@ -104,6 +104,29 @@ const isBigNumberString = (value: string): boolean => {
   return !Number.isSafeInteger(num) || value.length > 15
 }
 
+// 辅助函数：判断字符串是否为精度保护的数字（包括小数）
+const isProtectedNumberString = (value: string): boolean => {
+  if (typeof value !== 'string') return false
+
+  // 检查是否为纯数字字符串（可能包含负号和小数点）
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return false
+
+  // 2. 小数精度保护：检查是否为以0结尾的小数
+  if (value.includes('.') && /\.\d*0$/.test(value)) {
+    return true
+  }
+
+  // 1. 大数字保护
+  const num = Number(value)
+  // 对于负数，计算数字部分的长度（去掉负号）
+  const numericPart = value.startsWith('-') ? value.slice(1) : value
+  if (!Number.isSafeInteger(num) || numericPart.length > 15) {
+    return true
+  }
+
+  return false
+}
+
 // 计算属性
 const isObjectOrArray = computed(() => {
   return props.value !== null && typeof props.value === 'object'
@@ -151,8 +174,8 @@ const valueClass = computed(() => {
   if (type === 'boolean') return 'json-node__value--boolean'
   if (type === 'number') return 'json-node__value--number'
   if (type === 'string') {
-    // 检查是否为数字字符串（来自 json-bigint）
-    if (isBigNumberString(props.value)) {
+    // 检查是否为精度保护的数字字符串（包括大数字和小数）
+    if (isProtectedNumberString(props.value)) {
       return 'json-node__value--number'
     }
     return 'json-node__value--string'
@@ -169,8 +192,8 @@ const formattedValue = computed(() => {
   if (typeof props.value === 'boolean') return String(props.value)
   if (typeof props.value === 'number') return String(props.value)
   if (typeof props.value === 'string') {
-    // 检查是否为大数字字符串
-    if (isBigNumberString(props.value)) {
+    // 检查是否为精度保护的数字字符串（包括大数字和小数）
+    if (isProtectedNumberString(props.value)) {
       return props.value // 直接返回数字字符串，不加引号
     }
     return `"${props.value}"` // 普通字符串加引号

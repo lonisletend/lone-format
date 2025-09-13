@@ -116,9 +116,9 @@ const parseJson = (jsonString: string) => {
   try {
     let processedString = jsonString
 
-    // 检查是否包含可能丢失精度的大数字或小数
-    const hasLargeNumbers = /:\s*\d{16,}/.test(processedString)
-    const hasTrailingZeroDecimals = /:\s*\d+\.\d*0+\s*[,}\]]/.test(processedString)
+    // 检查是否包含可能丢失精度的大数字或小数（包括负数）
+    const hasLargeNumbers = /:\s*-?\d{16,}/.test(processedString)
+    const hasTrailingZeroDecimals = /:\s*-?\d+\.\d*0+\s*[,}\]]/.test(processedString)
 
     // 如果没有精度问题，尝试直接解析
     if (!hasLargeNumbers && !hasTrailingZeroDecimals) {
@@ -188,17 +188,17 @@ const parseJson = (jsonString: string) => {
       return result
     }
 
-    // 处理大数字：将16位以上的数字转为字符串
+    // 处理大数字：将16位以上的数字转为字符串（包括负数）
     processedString = safeReplace(
       processedString,
-      /:\s*(\d{16,})(\s*[,}\]\n\r])/,
+      /:\s*(-?\d{16,})(\s*[,}\]\n\r])/,
       ': "$1"$2'
     )
 
-    // 处理小数精度：将有尾随零的小数转为字符串以保持精度
+    // 处理小数精度：将有尾随零的小数转为字符串以保持精度（包括负数）
     processedString = safeReplace(
       processedString,
-      /:\s*(\d+\.\d*?0+)(\s*[,}\]\n\r])/,
+      /:\s*(-?\d+\.\d*?0+)(\s*[,}\]\n\r])/,
       ': "$1"$2'
     )
 
