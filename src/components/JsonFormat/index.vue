@@ -116,50 +116,91 @@ const parseJson = (jsonString: string) => {
   try {
     let processedString = jsonString
 
-    // 首先尝试直接解析，如果成功就不需要特殊处理
-    try {
-      parsedJson.value = JSON.parse(processedString)
-      parseError.value = ''
+    // 检查是否包含可能丢失精度的大数字或小数
+    const hasLargeNumbers = /:\s*\d{16,}/.test(processedString)
+    const hasTrailingZeroDecimals = /:\s*\d+\.\d*0+\s*[,}\]]/.test(processedString)
 
-      // 清除之前的过滤结果和错误
-      filteredJson.value = null
-      filterError.value = ''
+    // 如果没有精度问题，尝试直接解析
+    if (!hasLargeNumbers && !hasTrailingZeroDecimals) {
+      try {
+        parsedJson.value = JSON.parse(processedString)
+        parseError.value = ''
 
-      // 自动展开所有层级
-      nextTick(() => {
-        if (displayJson.value !== null) {
-          expandAll()
-        }
-      })
-      return
-    } catch (directParseError) {
-      // 如果直接解析失败，尝试特殊处理
-    }
+        // 清除之前的过滤结果和错误
+        filteredJson.value = null
+        filterError.value = ''
 
-    // 一个更安全的方法：先分割字符串，然后只处理非字符串部分
-    // 这里我们使用一个简单的状态机来跟踪是否在字符串内部
-    const chars = processedString.split('')
-    let inString = false
-    let escaped = false
-
-    for (let i = 0; i < chars.length; i++) {
-      if (chars[i] === '\\' && inString) {
-        escaped = !escaped
-      } else if (chars[i] === '"' && !escaped) {
-        inString = !inString
-      } else {
-        escaped = false
+        // 自动展开所有层级
+        nextTick(() => {
+          if (displayJson.value !== null) {
+            expandAll()
+          }
+        })
+        return
+      } catch (directParseError) {
+        // 如果直接解析失败，继续使用特殊处理
       }
     }
 
-    // 如果字符串结构正常，应用原来的处理逻辑
-    if (!inString) {
-      // 处理大数字：将16位以上的数字转为字符串
-      processedString = processedString.replace(/:\s*(\d{16,})\s*([,}\]])/g, ': "$1"$2')
+    // 使用状态机准确跟踪字符串位置并进行安全替换
+    const safeReplace = (text: string, pattern: RegExp, replacement: string): string => {
+      let result = ''
+      let inString = false
+      let escaped = false
+      let i = 0
 
-      // 处理小数精度：将有尾随零的小数转为字符串以保持精度
-      processedString = processedString.replace(/:\s*(\d+\.\d*?0+)\s*([,}\]])/g, ': "$1"$2')
+      while (i < text.length) {
+        const char = text[i]
+
+        if (inString) {
+          if (escaped) {
+            escaped = false
+          } else if (char === '\\') {
+            escaped = true
+          } else if (char === '"') {
+            inString = false
+          }
+          result += char
+          i++
+        } else {
+          if (char === '"') {
+            inString = true
+            result += char
+            i++
+          } else {
+            // 在非字符串区域，尝试匹配并替换
+            const remaining = text.slice(i)
+            const match = remaining.match(pattern)
+
+            if (match && match.index === 0) {
+              // 找到匹配，应用替换
+              const replaced = match[0].replace(pattern, replacement)
+              result += replaced
+              i += match[0].length
+            } else {
+              result += char
+              i++
+            }
+          }
+        }
+      }
+
+      return result
     }
+
+    // 处理大数字：将16位以上的数字转为字符串
+    processedString = safeReplace(
+      processedString,
+      /:\s*(\d{16,})(\s*[,}\]\n\r])/,
+      ': "$1"$2'
+    )
+
+    // 处理小数精度：将有尾随零的小数转为字符串以保持精度
+    processedString = safeReplace(
+      processedString,
+      /:\s*(\d+\.\d*?0+)(\s*[,}\]\n\r])/,
+      ': "$1"$2'
+    )
 
     parsedJson.value = JSON.parse(processedString)
     parseError.value = ''
