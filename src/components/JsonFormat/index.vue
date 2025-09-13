@@ -117,8 +117,9 @@ const parseJson = (jsonString: string) => {
     let processedString = jsonString
 
     // 检查是否包含可能丢失精度的大数字或小数（包括负数）
-    const hasLargeNumbers = /:\s*-?\d{16,}/.test(processedString)
-    const hasTrailingZeroDecimals = /:\s*-?\d+\.\d*0+\s*[,}\]]/.test(processedString)
+    // 检查对象属性值和数组元素值
+    const hasLargeNumbers = /(:\s*|,\s*|\[\s*)-?\d{16,}/.test(processedString)
+    const hasTrailingZeroDecimals = /(:\s*|,\s*|\[\s*)-?\d+\.\d*0+\s*[,}\]\s]*/.test(processedString)
 
     // 如果没有精度问题，尝试直接解析
     if (!hasLargeNumbers && !hasTrailingZeroDecimals) {
@@ -188,19 +189,62 @@ const parseJson = (jsonString: string) => {
       return result
     }
 
-    // 处理大数字：将16位以上的数字转为字符串（包括负数）
-    processedString = safeReplace(
-      processedString,
-      /:\s*(-?\d{16,})(\s*[,}\]\n\r])/,
-      ': "$1"$2'
-    )
+    // 专门处理数组和对象中的数值
+    const protectNumbers = (text: string): string => {
+      let result = ''
+      let inString = false
+      let escaped = false
+      let i = 0
 
-    // 处理小数精度：将有尾随零的小数转为字符串以保持精度（包括负数）
-    processedString = safeReplace(
-      processedString,
-      /:\s*(-?\d+\.\d*?0+)(\s*[,}\]\n\r])/,
-      ': "$1"$2'
-    )
+      while (i < text.length) {
+        const char = text[i]
+
+        if (inString) {
+          if (escaped) {
+            escaped = false
+          } else if (char === '\\') {
+            escaped = true
+          } else if (char === '"') {
+            inString = false
+          }
+          result += char
+          i++
+        } else {
+          if (char === '"') {
+            inString = true
+            result += char
+            i++
+          } else {
+            // 在非字符串区域寻找数值
+            const remaining = text.slice(i)
+
+            // 匹配大数字（16位以上，包括负数）
+            let match = remaining.match(/^([:,\[\s]*)(-?\d{16,})(\s*[,\}\]\s]|$)/)
+            if (match) {
+              result += match[1] + '"' + match[2] + '"' + match[3]
+              i += match[0].length
+              continue
+            }
+
+            // 匹配有尾随零的小数（包括负数）
+            match = remaining.match(/^([:,\[\s]*)(-?\d+\.\d*0+)(\s*[,\}\]\s]|$)/)
+            if (match) {
+              result += match[1] + '"' + match[2] + '"' + match[3]
+              i += match[0].length
+              continue
+            }
+
+            result += char
+            i++
+          }
+        }
+      }
+
+      return result
+    }
+
+    // 处理大数字和小数精度：使用新的保护函数
+    processedString = protectNumbers(processedString)
 
     parsedJson.value = JSON.parse(processedString)
     parseError.value = ''
