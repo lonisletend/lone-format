@@ -143,53 +143,7 @@ const parseJson = (jsonString: string) => {
       }
     }
 
-    // 使用状态机准确跟踪字符串位置并进行安全替换
-    const safeReplace = (text: string, pattern: RegExp, replacement: string): string => {
-      let result = ''
-      let inString = false
-      let escaped = false
-      let i = 0
-
-      while (i < text.length) {
-        const char = text[i]
-
-        if (inString) {
-          if (escaped) {
-            escaped = false
-          } else if (char === '\\') {
-            escaped = true
-          } else if (char === '"') {
-            inString = false
-          }
-          result += char
-          i++
-        } else {
-          if (char === '"') {
-            inString = true
-            result += char
-            i++
-          } else {
-            // 在非字符串区域，尝试匹配并替换
-            const remaining = text.slice(i)
-            const match = remaining.match(pattern)
-
-            if (match && match.index === 0) {
-              // 找到匹配，应用替换
-              const replaced = match[0].replace(pattern, replacement)
-              result += replaced
-              i += match[0].length
-            } else {
-              result += char
-              i++
-            }
-          }
-        }
-      }
-
-      return result
-    }
-
-    // 专门处理数组和对象中的数值
+    // 专门处理数组和对象中的数值，使用特殊标记来区分原始字符串和被保护的数字
     const protectNumbers = (text: string): string => {
       let result = ''
       let inString = false
@@ -221,7 +175,8 @@ const parseJson = (jsonString: string) => {
             // 匹配大数字（16位以上，包括负数）
             let match = remaining.match(/^([:,\[\s]*)(-?\d{16,})(\s*[,\}\]\s]|$)/)
             if (match) {
-              result += match[1] + '"' + match[2] + '"' + match[3]
+              // 使用特殊的对象格式来标记这是被保护的数字
+              result += match[1] + '{"__protected_number__":"' + match[2] + '"}' + match[3]
               i += match[0].length
               continue
             }
@@ -229,7 +184,8 @@ const parseJson = (jsonString: string) => {
             // 匹配有尾随零的小数（包括负数）
             match = remaining.match(/^([:,\[\s]*)(-?\d+\.\d*0+)(\s*[,\}\]\s]|$)/)
             if (match) {
-              result += match[1] + '"' + match[2] + '"' + match[3]
+              // 使用特殊的对象格式来标记这是被保护的数字
+              result += match[1] + '{"__protected_number__":"' + match[2] + '"}' + match[3]
               i += match[0].length
               continue
             }
@@ -334,57 +290,43 @@ watch(() => props.modelValue, (newValue) => {
   parseJson(newValue)
 }, { immediate: true })
 
-// 判断字符串是否为大数字
-const isBigNumberString = (value: string): boolean => {
-  // 检查是否为纯数字字符串（可能包含负号和小数点）
-  if (!/^-?\d+(\.\d+)?$/.test(value)) return false
-
-  // 检查是否超出 JavaScript Number 的安全范围
-  const num = Number(value)
-  return !Number.isSafeInteger(num) || value.length > 15
-}
-
-// 自定义 stringify 函数，保持数字格式
+// 自定义 stringify 函数，正确处理被保护的数字
 const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): string => {
-  return JSON.stringify(obj, (key, value) => {
-    // 如果是大数字字符串，标记它以便后续处理
-    if (typeof value === 'string' && isBigNumberString(value)) {
-      return `__BIG_NUMBER__${value}__BIG_NUMBER__`
+  // 递归处理数据，将被保护的数字对象转换为特殊字符串标记
+  const processProtectedNumbers = (data: any): any => {
+    if (data === null || typeof data !== 'object') {
+      return data
     }
 
-    // 如果是普通数字字符串（但看起来像数字），尝试转换为数字
-    if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) {
-      const num = Number(value)
-      // 如果是整数且没有精度损失，返回数字
-      if (Number.isSafeInteger(num) && num.toString() === value) {
-        return num
-      }
-      // 如果是浮点数，需要保持原始精度，特别是尾随零
-      else if (!Number.isNaN(num) && isFinite(num) && value.includes('.')) {
-        // 对于小数，检查数字的标准表示是否与原始字符串一致
-        const standardForm = num.toString()
-        if (standardForm === value) {
-          // 只有完全一致时才转换为数字
-          return num
-        } else {
-          // 否则保持原始字符串，以保留精度（如尾随零）
-          return `__PRESERVE_STRING__${value}__PRESERVE_STRING__`
-        }
-      }
-      // 如果是整数形式但超出安全范围，保持字符串
-      else if (!Number.isNaN(num) && isFinite(num)) {
-        return num
-      }
+    // 检查是否为被保护的数字对象
+    if (!Array.isArray(data) &&
+        '__protected_number__' in data &&
+        Object.keys(data).length === 1) {
+      // 返回特殊标记，后续会被替换为原始数字
+      return `__PROTECTED_NUMBER_${data.__protected_number__}_PROTECTED_NUMBER__`
     }
 
-    // 应用用户提供的 replacer
-    if (replacer && typeof replacer === 'function') {
-      return replacer(key, value)
+    // 递归处理数组
+    if (Array.isArray(data)) {
+      return data.map(item => processProtectedNumbers(item))
     }
-    return value
-  }, space)
-    .replace(/"__BIG_NUMBER__(.+?)__BIG_NUMBER__"/g, '$1')
-    .replace(/"__PRESERVE_STRING__(.+?)__PRESERVE_STRING__"/g, '$1')
+
+    // 递归处理对象
+    const result: any = {}
+    for (const [key, value] of Object.entries(data)) {
+      result[key] = processProtectedNumbers(value)
+    }
+    return result
+  }
+
+  // 先处理数据结构
+  const processedData = processProtectedNumbers(obj)
+  
+  // 然后进行 JSON.stringify
+  const jsonString = JSON.stringify(processedData, replacer, space)
+  
+  // 最后替换特殊标记为原始数字（不带引号）
+  return jsonString.replace(/"__PROTECTED_NUMBER_(.+?)_PROTECTED_NUMBER__"/g, '$1')
 }
 
 // 更新值
@@ -517,9 +459,13 @@ const copyValue = async (value: any) => {
   try {
     let stringValue: string
 
-    if (typeof value === 'string' && isBigNumberString(value)) {
-      // 大数字字符串，复制时作为数字
-      stringValue = value // 直接使用数字字符串，不加引号
+    // 如果是被保护的数字对象，提取原始数字值
+    if (typeof value === 'object' && 
+        value !== null &&
+        !Array.isArray(value) &&
+        '__protected_number__' in value &&
+        Object.keys(value).length === 1) {
+      stringValue = value.__protected_number__ // 直接使用数字字符串，不加引号
     } else if (typeof value === 'string') {
       // 普通字符串，需要加引号
       stringValue = `"${value}"`

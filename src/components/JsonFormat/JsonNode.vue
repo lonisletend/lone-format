@@ -94,41 +94,29 @@ const isEditingValue = ref(false)
 const editingKeyValue = ref('')
 const editingValueValue = ref('')
 
-// 辅助函数：判断字符串是否为大数字
-const isBigNumberString = (value: string): boolean => {
-  // 检查是否为纯数字字符串（可能包含负号和小数点）
-  if (!/^-?\d+(\.\d+)?$/.test(value)) return false
-
-  // 检查是否超出 JavaScript Number 的安全范围
-  const num = Number(value)
-  return !Number.isSafeInteger(num) || value.length > 15
+// 辅助函数：检查是否为被保护的数字对象
+const isProtectedNumberObject = (value: any): boolean => {
+  return value !== null && 
+         typeof value === 'object' && 
+         !Array.isArray(value) &&
+         '__protected_number__' in value &&
+         Object.keys(value).length === 1
 }
 
-// 辅助函数：判断字符串是否为精度保护的数字（包括小数）
-const isProtectedNumberString = (value: string): boolean => {
-  if (typeof value !== 'string') return false
-
-  // 检查是否为纯数字字符串（可能包含负号和小数点）
-  if (!/^-?\d+(\.\d+)?$/.test(value)) return false
-
-  // 2. 小数精度保护：检查是否为以0结尾的小数
-  if (value.includes('.') && /\.\d*0$/.test(value)) {
-    return true
+// 辅助函数：获取被保护数字的值
+const getProtectedNumberValue = (value: any): string => {
+  if (isProtectedNumberObject(value)) {
+    return value.__protected_number__
   }
-
-  // 1. 大数字保护
-  const num = Number(value)
-  // 对于负数，计算数字部分的长度（去掉负号）
-  const numericPart = value.startsWith('-') ? value.slice(1) : value
-  if (!Number.isSafeInteger(num) || numericPart.length > 15) {
-    return true
-  }
-
-  return false
+  return ''
 }
 
 // 计算属性
 const isObjectOrArray = computed(() => {
+  // 如果是被保护的数字对象，不视为普通对象
+  if (isProtectedNumberObject(props.value)) {
+    return false
+  }
   return props.value !== null && typeof props.value === 'object'
 })
 
@@ -173,11 +161,14 @@ const valueClass = computed(() => {
   if (props.value === null) return 'json-node__value--null'
   if (type === 'boolean') return 'json-node__value--boolean'
   if (type === 'number') return 'json-node__value--number'
+  
+  // 检查是否为被保护的数字对象
+  if (isProtectedNumberObject(props.value)) {
+    return 'json-node__value--number'
+  }
+  
   if (type === 'string') {
-    // 检查是否为精度保护的数字字符串（包括大数字和小数）
-    if (isProtectedNumberString(props.value)) {
-      return 'json-node__value--number'
-    }
+    // 对于普通字符串，不再特殊处理数字样式的字符串
     return 'json-node__value--string'
   }
   return ''
@@ -191,12 +182,15 @@ const formattedValue = computed(() => {
   if (props.value === null) return 'null'
   if (typeof props.value === 'boolean') return String(props.value)
   if (typeof props.value === 'number') return String(props.value)
+  
+  // 检查是否为被保护的数字对象
+  if (isProtectedNumberObject(props.value)) {
+    return getProtectedNumberValue(props.value) // 直接返回数字字符串，不加引号
+  }
+  
   if (typeof props.value === 'string') {
-    // 检查是否为精度保护的数字字符串（包括大数字和小数）
-    if (isProtectedNumberString(props.value)) {
-      return props.value // 直接返回数字字符串，不加引号
-    }
-    return `"${props.value}"` // 普通字符串加引号
+    // 对于普通字符串，始终加引号显示
+    return `"${props.value}"`
   }
   return String(props.value)
 })
@@ -246,9 +240,9 @@ const editValue = () => {
   isEditingValue.value = true
 
   // 设置编辑初始值
-  if (typeof props.value === 'string' && isBigNumberString(props.value)) {
-    // 大数字字符串直接使用原值
-    editingValueValue.value = props.value
+  if (isProtectedNumberObject(props.value)) {
+    // 被保护的数字对象，使用其数字值
+    editingValueValue.value = getProtectedNumberValue(props.value)
   } else if (typeof props.value === 'string') {
     // 普通字符串不包含引号
     editingValueValue.value = props.value
@@ -309,8 +303,8 @@ const saveValueEdit = () => {
       // 检查是否为大数字
       const num = Number(trimmed)
       if (!Number.isSafeInteger(num) || trimmed.length > 15) {
-        // 大数字保持为字符串
-        newValue = trimmed
+        // 大数字使用保护对象格式，保持数字类型
+        newValue = { __protected_number__: trimmed }
       } else {
         // 普通数字
         newValue = num
@@ -336,8 +330,8 @@ const cancelKeyEdit = () => {
 const cancelValueEdit = () => {
   isEditingValue.value = false
   // 重置为原始值，而不是空字符串
-  if (typeof props.value === 'string' && isBigNumberString(props.value)) {
-    editingValueValue.value = props.value
+  if (isProtectedNumberObject(props.value)) {
+    editingValueValue.value = getProtectedNumberValue(props.value)
   } else if (typeof props.value === 'string') {
     editingValueValue.value = props.value
   } else {
