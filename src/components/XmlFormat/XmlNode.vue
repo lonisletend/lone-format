@@ -1,70 +1,68 @@
 <template>
-  <div class="xml-node" :style="{ marginLeft: `${level * 20}px` }">
+  <div class="xml-node" :style="{ paddingLeft: level > 0 ? '16px' : '0' }">
     <!-- 元素节点 -->
     <div v-if="isElement" class="xml-node__element">
       <!-- 只有文本内容的简单元素，使用内联格式 -->
-      <div v-if="isSimpleTextElement" class="xml-node__line">
-        <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span>
-        <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
-        
-        <!-- 属性列表 -->
-        <span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute">
-          <span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span>
-          <span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span>
-          <span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span>
-          <span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span>
-          <span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span>
-        </span>
-        
-        <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
-        <span class="xml-node__text-content" :style="{ color: theme.colors.xmlText }">{{ textContent }}</span>
-        <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span>
-        <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
-        <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
+      <div v-if="isSimpleTextElement" class="xml-node__line"
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
+          ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+          ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+          ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
+        ><span class="xml-node__text-content" :style="{ color: theme.colors.xmlText }">{{ textContent }}</span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span
+        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
       </div>
       
       <!-- 有子元素或可折叠的复杂元素 -->
       <div v-else>
         <!-- 开始标签 -->
         <div class="xml-node__line">
+          <!-- 可点击的部分：左括号和标签名 -->
           <span
-            class="xml-node__bracket"
-            :style="{ color: theme.colors.xmlBracket }"
-            @click="toggleCollapse"
-            :class="{ 'xml-node__bracket--clickable': hasChildren }"
-            :title="hasChildren ? (isExpanded ? 'Click to collapse' : 'Click to expand') : ''"
-          >
-            &lt;
-          </span>
-          <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">
-            {{ tagName }}
-          </span>
-
-          <!-- 属性列表 -->
-          <span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute">
-            <span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">
-              {{ attrName }}
-            </span>
-            <span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span>
-            <span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span>
-            <span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">
-              {{ attrValue }}
-            </span>
-            <span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span>
-          </span>
-
-          <!-- 自闭合或开始标签结束 -->
-          <span v-if="!hasChildren" class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">
-            /&gt;
-          </span>
-          <span v-else class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">
-            &gt;
-          </span>
-
-          <!-- 折叠状态提示 -->
-          <span v-if="!isExpanded && hasChildren" class="xml-node__collapsed" :style="{ color: theme.colors.textSecondary }">
-            ...
-          </span>
+            v-if="hasChildren"
+            class="xml-node__clickable-part"
+            @click="toggleCollapse()"
+            :title="isExpanded ? 'Click to collapse' : 'Click to expand'"
+            ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+            ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+          ></span>
+          <!-- 无子节点时，不可点击 -->
+          <span v-else
+            ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+            ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+          ></span>
+          <!-- 属性列表：不可点击 -->
+          <span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
+            ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+            ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
+            ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+            ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+            ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+          ></span>
+          <!-- 可点击的部分：右括号 -->
+          <span
+            v-if="hasChildren"
+            class="xml-node__clickable-part"
+            @click="toggleCollapse()"
+            :title="isExpanded ? 'Click to collapse' : 'Click to expand'"
+            ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
+          ></span>
+          <!-- 无子节点时的自闭合标签 -->
+          <span v-else class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">{{ hasChildren ? '&gt;' : '/&gt;' }}</span>
+          <!-- 折叠提示：可点击展开 -->
+          <span 
+            v-if="!isExpanded && hasChildren" 
+            class="xml-node__collapsed xml-node__collapsed--clickable" 
+            :style="{ color: theme.colors.textSecondary }"
+            @click="toggleCollapse()"
+            title="Click to expand"
+          >...</span>
         </div>
 
         <!-- 子节点 -->
@@ -93,9 +91,15 @@
 
         <!-- 结束标签 -->
         <div v-if="isExpanded && hasChildren" class="xml-node__line">
-          <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span>
-          <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
-          <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
+          <span
+            class="xml-node__clickable-part"
+            @click="toggleCollapse()"
+            title="Click to collapse"
+          >
+            <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span>
+            <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
+            <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
+          </span>
         </div>
       </div>
     </div>
@@ -278,13 +282,16 @@ const getChildKey = (child: { tagName: string; value: any }, index: number): str
   user-select: text;
 }
 
-.xml-node__bracket--clickable {
+.xml-node__clickable-part {
   cursor: pointer;
   user-select: none;
+  display: inline-block;
+  border-radius: 3px;
+  transition: background-color 0.15s ease;
 }
 
-.xml-node__bracket--clickable:hover {
-  opacity: 0.7;
+.xml-node__clickable-part:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .xml-node__tag {
@@ -306,6 +313,19 @@ const getChildKey = (child: { tagName: string; value: any }, index: number): str
 .xml-node__collapsed {
   margin-left: 4px;
   font-style: italic;
+}
+
+.xml-node__collapsed--clickable {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.15s ease;
+  user-select: none;
+}
+
+.xml-node__collapsed--clickable:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+  font-weight: 500;
 }
 
 .xml-node__children {

@@ -332,6 +332,41 @@ const invalidJson = ref(`{
 // 互动式编辑器的数据
 const interactiveJson = ref(`{"status":200,"text":"","error":null,"data":[{"news_id":123456789012345678901234567890,"title":"iPhone X Review: Innovative future with real black technology","source":"Netease phone","rating":0.5},{"news_id":123456789012345678901234567891,"title":"Traffic paradise: How to design streets for people and unmanned vehicles in the future?","source":"Netease smart","link":"http://netease.smart/traffic-paradise/1235","rating":0.60},{"news_id":123456789012345678901234567892,"title":"Teslamask's American Business Relations: The government does not pay billions to build factories","source":"AI Finance","rating":0.8000,"members":["Daniel","Mike","John"]}]}`)
 
+// XML 互动式编辑器的数据
+const interactiveXml = ref(`<?xml version="1.0" encoding="UTF-8"?>
+<library>
+  <book id="1" category="programming">
+    <title lang="en">Learning TypeScript</title>
+    <author>Josh Goldberg</author>
+    <year>2022</year>
+    <price currency="USD">39.99</price>
+    <publisher>
+      <name>O'Reilly Media</name>
+      <location>Sebastopol, CA</location>
+    </publisher>
+    <tags>
+      <tag>TypeScript</tag>
+      <tag>JavaScript</tag>
+      <tag>Web Development</tag>
+    </tags>
+  </book>
+  <book id="2" category="web">
+    <title lang="en">Vue.js 3 Cookbook</title>
+    <author>Heitor Ramon Ribeiro</author>
+    <year>2023</year>
+    <price currency="USD">44.99</price>
+    <publisher>
+      <name>Packt Publishing</name>
+      <location>Birmingham, UK</location>
+    </publisher>
+    <tags>
+      <tag>Vue.js</tag>
+      <tag>Frontend</tag>
+      <tag>Framework</tag>
+    </tags>
+  </book>
+</library>`)
+
 // Tab 管理
 const activeTab = ref('interactive')
 </script>
@@ -344,10 +379,6 @@ const activeTab = ref('interactive')
 
       <!-- 主题切换控制 -->
       <!-- Theme control removed - now using tab-specific theme demo -->
-
-
-      �
-
     </header>
 
     <main class="app-main">
@@ -381,6 +412,9 @@ const activeTab = ref('interactive')
           </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml' }]" @click="activeTab = 'xml'">
             📄 XML Format
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-interactive' }]" @click="activeTab = 'xml-interactive'">
+            🚀 XML Interactive
           </button>
         </div>
 
@@ -642,6 +676,36 @@ const activeTab = ref('interactive')
                 </div>
                 <div class="json-format-wrapper">
                   <JsonFormat v-model="interactiveJson" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- XML Interactive Editor Tab -->
+          <div v-show="activeTab === 'xml-interactive'" class="component-item component-item--full">
+            <h3>🚀 Interactive XML Editor</h3>
+            <p class="description">
+              双向编辑器：左侧输入 XML 字符串，右侧实时预览格式化结果。
+              你可以在左侧编辑原始 XML，右侧会实时显示树形结构。
+            </p>
+
+            <div class="interactive-editor">
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>📝 XML Input</h4>
+                  <span class="panel-info">原始 XML 字符串</span>
+                </div>
+                <textarea v-model="interactiveXml" class="json-textarea" placeholder="在这里输入 XML 字符串..."
+                  spellcheck="false"></textarea>
+              </div>
+
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>🎨 Formatted View</h4>
+                  <span class="panel-info">格式化预览</span>
+                </div>
+                <div class="json-format-wrapper">
+                  <XmlFormat v-model="interactiveXml" />
                 </div>
               </div>
             </div>
