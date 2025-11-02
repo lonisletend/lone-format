@@ -124,3 +124,26 @@ export interface XmlFormatOptions {
 export interface ParsedXml {
   [key: string]: any
 }
+
+/**
+ * XmlFormat 组件暴露的方法接口
+ */
+export interface XmlFormatExposed {
+  // 核心操作方法
+  copyXml: () => Promise<void>
+  compressSource: () => void
+  formatSource: () => void
+  expandAll: () => void
+  collapseAll: () => void
+  toggleExpand: (path: string) => void
+
+  // 状态访问方法
+  isValidXml: () => boolean
+  getParsedXml: () => ParsedXml | null
+  getExpandedNodes: () => Set<string>
+  getParseError: () => string
+
+  // 工具方法
+  parseXmlString: (xmlString: string) => void
+  copyValue: (value: any) => Promise<void>
+}

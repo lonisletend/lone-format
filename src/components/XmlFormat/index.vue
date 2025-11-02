@@ -295,6 +295,27 @@ const copyValue = async (value: any) => {
 watch(() => props.modelValue, (newValue) => {
   parseXmlString(newValue)
 }, { immediate: true })
+
+// 暴露方法给父组件调用
+defineExpose({
+  // 核心操作方法
+  copyXml,
+  compressSource,
+  formatSource,
+  expandAll,
+  collapseAll,
+  toggleExpand,
+
+  // 状态访问方法
+  isValidXml: () => isValidXml.value,
+  getParsedXml: () => parsedXml.value,
+  getExpandedNodes: () => expandedNodes.value,
+  getParseError: () => parseError.value,
+
+  // 工具方法
+  parseXmlString: (xmlString: string) => parseXmlString(xmlString),
+  copyValue: (value: any) => copyValue(value)
+})
 </script>
 
 <style scoped>
