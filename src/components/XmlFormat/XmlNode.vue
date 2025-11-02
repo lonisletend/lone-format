@@ -1,9 +1,40 @@
 <template>
   <div class="xml-node" :style="{ paddingLeft: level > 0 ? '16px' : '0' }">
+    <!-- 注释节点 -->
+    <div v-if="nodeType === 'comment'" class="xml-node__comment">
+      <span :style="{ color: theme.colors.xmlComment }">
+        &lt;!-- {{ commentContent }} --&gt;
+      </span>
+    </div>
+
+    <!-- CDATA 节点 -->
+    <div v-else-if="nodeType === 'cdata'" class="xml-node__cdata">
+      <span :style="{ color: theme.colors.xmlCdata }">
+        &lt;![CDATA[{{ node['__cdata'] }}]]&gt;
+      </span>
+    </div>
+
     <!-- 元素节点 -->
-    <div v-if="isElement" class="xml-node__element">
+    <div v-else-if="nodeType === 'element'" class="xml-node__element">
+      <!-- 包含 CDATA 的元素，使用内联格式 -->
+      <div v-if="hasCdata" class="xml-node__line"
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
+          ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+          ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+          ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
+        ><span class="xml-node__cdata" :style="{ color: theme.colors.xmlCdata }">&lt;![CDATA[{{ cdataContent }}]]&gt;</span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span
+        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
+      </div>
+      
       <!-- 只有文本内容的简单元素，使用内联格式 -->
-      <div v-if="isSimpleTextElement" class="xml-node__line"
+      <div v-else-if="isSimpleTextElement" class="xml-node__line"
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
         ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
         ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
@@ -74,14 +105,14 @@
             </span>
           </div>
           
-          <!-- 子元素节点 -->
+          <!-- 子元素节点（递归） -->
           <XmlNode
-            v-for="(child, index) in children"
-            :key="getChildKey(child, index)"
-            :value="child.value"
-            :tag-name="child.tagName"
+            v-for="(child, childIndex) in children"
+            :key="getChildKey(child, childIndex)"
+            :node="child"
+            :index="childIndex"
             :level="level + 1"
-            :path="childPath(child.tagName, index)"
+            :parent-path="childPath()"
             :expanded="expanded"
             :theme="theme"
             @toggle-expand="(path) => $emit('toggle-expand', path)"
@@ -103,46 +134,24 @@
         </div>
       </div>
     </div>
-
-    <!-- 文本内容节点 -->
-    <div v-else-if="isTextNode" class="xml-node__text">
-      <span class="xml-node__text-content" :style="{ color: theme.colors.xmlText }">
-        {{ textContent }}
-      </span>
-    </div>
-
-    <!-- 注释节点 -->
-    <div v-else-if="isComment" class="xml-node__comment">
-      <span :style="{ color: theme.colors.xmlComment }">
-        &lt;!-- {{ commentContent }} --&gt;
-      </span>
-    </div>
-
-    <!-- CDATA 节点 -->
-    <div v-else-if="isCdata" class="xml-node__cdata">
-      <span :style="{ color: theme.colors.xmlCdata }">
-        &lt;![CDATA[{{ cdataContent }}]]&gt;
-      </span>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ThemeConfig } from './types'
-import { extractAttributes, getTextContent } from './parser'
 
 interface Props {
-  value: any
-  tagName: string
+  node: any              // preserveOrder: true 的节点对象
+  index: number          // 当前节点在父数组中的索引
   level: number
-  path?: string
+  parentPath?: string    // 父节点路径
   expanded: Set<string>
   theme: ThemeConfig
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  path: '',
+  parentPath: '',
   level: 0
 })
 
@@ -151,105 +160,107 @@ const emit = defineEmits<{
   'copy': [value: any]
 }>()
 
-// 当前路径
-const currentPath = computed(() => props.path || props.tagName)
+// 获取节点的标签名
+const tagName = computed(() => {
+  // 查找非特殊属性的键名作为标签名
+  const keys = Object.keys(props.node)
+  return keys.find(key => !key.startsWith(':') && !key.startsWith('#')) || ''
+})
+
+// 当前节点路径
+const currentPath = computed(() => {
+  if (!tagName.value) return ''
+  return props.parentPath 
+    ? `${props.parentPath}[${props.index}]` 
+    : `${tagName.value}[${props.index}]`
+})
 
 // 是否展开
 const isExpanded = computed(() => props.expanded.has(currentPath.value))
 
 // 节点类型判断
-const isElement = computed(() => {
-  // 如果有明确的标签名（不是特殊节点），就当作元素节点
-  if (props.tagName && !props.tagName.startsWith('#') && props.tagName !== '__cdata') {
-    return true
-  }
-  // 否则检查值是否为对象
-  return props.value !== null && typeof props.value === 'object'
+const nodeType = computed(() => {
+  if (props.node['#comment']) return 'comment'
+  if (props.node['__cdata']) return 'cdata'
+  if (tagName.value) return 'element'
+  return 'unknown'
 })
 
-const isTextNode = computed(() => {
-  // 只有当没有标签名，且值为字符串时，才是纯文本节点
-  return !props.tagName && typeof props.value === 'string'
-})
-
-const isComment = computed(() => {
-  return props.tagName === '#comment'
-})
-
-const isCdata = computed(() => {
-  return props.tagName === '__cdata'
-})
-
-// 提取属性
+// 属性对象（:@ 格式）
 const attributes = computed(() => {
-  if (!isElement.value) return {}
-  return extractAttributes(props.value)
-})
-
-// 获取文本内容
-const textContent = computed(() => {
-  // 如果值本身就是字符串，直接返回
-  if (typeof props.value === 'string') {
-    return props.value
-  }
-  // 如果值是对象，提取 #text
-  if (isElement.value) {
-    return getTextContent(props.value) || ''
-  }
-  return props.value || ''
-})
-
-const commentContent = computed(() => {
-  return props.value || ''
-})
-
-const cdataContent = computed(() => {
-  return props.value || ''
-})
-
-// 子节点
-const children = computed(() => {
-  // 只有对象类型才可能有子节点
-  if (typeof props.value !== 'object' || props.value === null) {
-    return []
-  }
-  
-  const childNodes: Array<{ tagName: string; value: any }> = []
-  
-  Object.keys(props.value).forEach(key => {
-    // 跳过属性节点
-    if (key.startsWith('@_')) return
-    
-    // 跳过 #text 节点（文本内容通过 textContent 处理）
-    if (key === '#text') return
-    
-    const childValue = props.value[key]
-    
-    // 如果是数组，展开每个元素
-    if (Array.isArray(childValue)) {
-      childValue.forEach(item => {
-        childNodes.push({ tagName: key, value: item })
-      })
-    } else {
-      childNodes.push({ tagName: key, value: childValue })
+  const attrs = props.node[':@'] || {}
+  const result: Record<string, string> = {}
+  Object.keys(attrs).forEach(key => {
+    if (key.startsWith('@_')) {
+      result[key.substring(2)] = attrs[key]
     }
   })
-  
-  return childNodes
+  return result
 })
 
+// 子节点数组
+const children = computed(() => {
+  if (nodeType.value !== 'element' || !tagName.value) return []
+  const childArray = props.node[tagName.value]
+  return Array.isArray(childArray) ? childArray : []
+})
+
+// 检查是否包含 CDATA
+const hasCdata = computed(() => {
+  return children.value.some((child: any) => child['__cdata'])
+})
+
+// CDATA 内容
+const cdataContent = computed(() => {
+  if (!hasCdata.value) return ''
+  const cdataNode = children.value.find((child: any) => child['__cdata'])
+  if (cdataNode && Array.isArray(cdataNode['__cdata'])) {
+    const cdataArray = cdataNode['__cdata']
+    if (cdataArray.length > 0 && cdataArray[0]['#text']) {
+      return cdataArray[0]['#text']
+    }
+  }
+  return ''
+})
+
+// 文本内容
+const textContent = computed(() => {
+  if (nodeType.value !== 'element' || !tagName.value) return ''
+  
+  // 如果有 CDATA，不显示文本内容
+  if (hasCdata.value) return ''
+  
+  const childArray = props.node[tagName.value]
+  if (!Array.isArray(childArray)) return ''
+  
+  // 查找文本节点
+  const textNode = childArray.find((child: any) => child['#text'])
+  return textNode ? textNode['#text'] : ''
+})
+
+// 注释内容
+const commentContent = computed(() => {
+  if (nodeType.value !== 'comment') return ''
+  const commentArray = props.node['#comment']
+  if (Array.isArray(commentArray) && commentArray.length > 0) {
+    return commentArray[0]['#text'] || ''
+  }
+  return ''
+})
+
+// 是否有子元素（不包括纯文本）
 const hasChildren = computed(() => {
-  // 有子元素节点
-  if (children.value.length > 0) return true
-  
-  // 或者有文本内容（非空白）
-  const text = textContent.value.trim()
-  return text !== ''
+  return children.value.some((child: any) => {
+    const keys = Object.keys(child)
+    return keys.some(key => !key.startsWith('#') && !key.startsWith(':'))
+  })
 })
 
-// 是否是简单文本元素（只有文本内容，没有子元素）
+// 是否是简单文本元素
 const isSimpleTextElement = computed(() => {
-  return isElement.value && children.value.length === 0 && textContent.value.trim() !== ''
+  return nodeType.value === 'element' && 
+         !hasChildren.value && 
+         textContent.value.trim() !== ''
 })
 
 // 切换展开/折叠
@@ -259,30 +270,22 @@ const toggleCollapse = () => {
   }
 }
 
-// 生成子节点路径
-const childPath = (childTag: string, index: number): string => {
-  // 计算同名标签的索引
-  let tagIndex = 0
-  for (let i = 0; i < index; i++) {
-    if (children.value[i].tagName === childTag) {
-      tagIndex++
-    }
-  }
-  return `${currentPath.value}.${childTag}[${tagIndex}]`
+// 获取子节点的唯一 key
+const getChildKey = (_child: any, index: number) => {
+  return `${currentPath.value}-child-${index}`
 }
 
-// 生成子节点 key
-const getChildKey = (child: { tagName: string; value: any }, index: number): string => {
-  return `${child.tagName}-${index}`
+// 生成子节点路径（用于递归传递给子组件）
+const childPath = (): string => {
+  // 返回的路径是父路径 + 当前标签名
+  // 例如：library[0] → library[0].library
+  return `${currentPath.value}.${tagName.value}`
 }
+
 </script>
 
 <style scoped>
-.xml-node {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-}
+/* 字体由父组件 .xml-format 统一控制 */
 
 .xml-node__line {
   display: inline-block;
@@ -350,7 +353,6 @@ const getChildKey = (child: { tagName: string; value: any }, index: number): str
 }
 
 .xml-node__cdata {
-  font-family: monospace;
   opacity: 0.9;
 }
 </style>

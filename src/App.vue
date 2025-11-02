@@ -13,26 +13,24 @@ const filterTestRef = ref<JsonFormatExposed>()
 
 // XML Format 测试数据
 const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
-<bookstore>
-  <book category="cooking" lang="en">
-    <title>Everyday Italian</title>
-    <author>Giada De Laurentiis</author>
-    <year>2005</year>
-    <price>30.00</price>
+<!-- 这是图书馆的 XML 数据 -->
+<library>
+  <!-- 第一本书：TypeScript -->
+  <book id="1" category="programming">
+    <title lang="en">Learning TypeScript</title>
+    <author>Josh Goldberg</author>
+    <year>2022</year>
+    <price currency="USD">39.99</price>
+    <example><![CDATA[const add = (a, b) => a + b; console.log(add(2, 3)); // 5]]></example>
   </book>
-  <book category="children">
-    <title>Harry Potter</title>
-    <author>J K. Rowling</author>
-    <year>2005</year>
-    <price>29.99</price>
+  <!-- 第二本书：Vue.js -->
+  <book id="2" category="web">
+    <title lang="en">Vue.js 3 Cookbook</title>
+    <author>Heitor Ramon Ribeiro</author>
+    <year>2023</year>
+    <price currency="USD">44.99</price>
   </book>
-  <book category="web">
-    <title>Learning XML</title>
-    <author>Erik T. Ray</author>
-    <year>2003</year>
-    <price>39.95</price>
-  </book>
-</bookstore>`)
+</library>`)
 
 const xmlTheme = ref<ThemeType>('min-light')
 

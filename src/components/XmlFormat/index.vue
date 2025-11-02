@@ -66,11 +66,17 @@
 
       <!-- XML 树形展示 -->
       <div v-else class="xml-format__viewer">
+        <!-- XML 声明 -->
+        <div v-if="xmlDeclaration" class="xml-declaration" :style="{ color: currentTheme.colors.xmlDeclaration }">
+          {{ xmlDeclaration }}
+        </div>
+        
+        <!-- XML 节点（遍历数组） -->
         <XmlNode
-          v-for="(rootValue, rootTag) in rootNodes"
-          :key="String(rootTag)"
-          :value="rootValue"
-          :tag-name="String(rootTag)"
+          v-for="(node, index) in renderNodes"
+          :key="index"
+          :node="node"
+          :index="index"
           :level="0"
           :expanded="expandedNodes"
           :theme="currentTheme"
@@ -87,7 +93,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import XmlNode from './XmlNode.vue'
 import type { ThemeType, ParsedXml } from './types'
 import { getTheme } from './themes'
-import { validateXml, parseXml, buildXml, compressXml, formatXml } from './parser'
+import { validateXml, parseXml, buildXml, compressXml, formatXml, buildXmlFromArray } from './parser'
 
 interface Props {
   modelValue: string
@@ -132,19 +138,34 @@ const isValidXml = computed(() => parseError.value === '')
 // 当前主题
 const currentTheme = computed(() => getTheme(props.theme))
 
-// 根节点
+// 根节点（preserveOrder: true 返回数组）
 const rootNodes = computed(() => {
-  if (!parsedXml.value) return {}
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return []
   
-  // 过滤掉 XML 声明等特殊节点
-  const nodes: ParsedXml = {}
-  Object.keys(parsedXml.value).forEach(key => {
-    if (!key.startsWith('?') && !key.startsWith('#')) {
-      nodes[key] = parsedXml.value![key]
-    }
-  })
+  // 过滤掉 XML 声明，返回其余节点
+  return parsedXml.value.filter(node => !node['?xml'])
+})
+
+// XML 声明
+const xmlDeclaration = computed(() => {
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return null
   
-  return nodes
+  // 查找 XML 声明节点
+  const declarationNode = parsedXml.value.find(node => node['?xml'])
+  if (!declarationNode || !declarationNode[':@']) return null
+  
+  const attrs = declarationNode[':@']
+  const parts = []
+  if (attrs['@_version']) parts.push(`version="${attrs['@_version']}"`)
+  if (attrs['@_encoding']) parts.push(`encoding="${attrs['@_encoding']}"`)
+  if (attrs['@_standalone']) parts.push(`standalone="${attrs['@_standalone']}"`)
+  
+  return parts.length > 0 ? `<?xml ${parts.join(' ')}?>` : null
+})
+
+// 实际渲染的根节点（不包括声明）
+const renderNodes = computed(() => {
+  return rootNodes.value
 })
 
 // 解析 XML
@@ -188,36 +209,42 @@ const toggleExpand = (path: string) => {
   }
 }
 
-// 全部展开
+// 全部展开（适配 preserveOrder: true 的数组结构）
 const expandAll = () => {
   const allPaths = new Set<string>()
   
-  const collectPaths = (obj: any, currentPath: string = '') => {
-    if (obj !== null && typeof obj === 'object') {
-      if (currentPath) {
-        allPaths.add(currentPath)
-      }
+  // 递归收集路径
+  const collectPaths = (nodeArray: any[], currentPath: string = '') => {
+    if (!Array.isArray(nodeArray)) return
+    
+    nodeArray.forEach((item, index) => {
+      // 获取节点的标签名
+      const tagName = Object.keys(item).find(key => !key.startsWith(':') && !key.startsWith('#'))
+      if (!tagName) return
       
-      Object.keys(obj).forEach(key => {
-        if (key.startsWith('@_') || key === '#text') return
-        
-        const value = obj[key]
-        const newPath = currentPath ? `${currentPath}.${key}[0]` : key
-        
-        if (Array.isArray(value)) {
-          value.forEach((item, index) => {
-            const arrayPath = currentPath ? `${currentPath}.${key}[${index}]` : `${key}[${index}]`
-            collectPaths(item, arrayPath)
-          })
-        } else {
-          collectPaths(value, newPath)
-        }
-      })
-    }
+      const nodePath = currentPath ? `${currentPath}[${index}]` : `${tagName}[${index}]`
+      allPaths.add(nodePath)
+      
+      // 递归处理子节点数组
+      const children = item[tagName]
+      if (Array.isArray(children)) {
+        collectPaths(children, nodePath + '.' + tagName)
+      }
+    })
   }
-
-  Object.keys(rootNodes.value).forEach(key => {
-    collectPaths(rootNodes.value[key], key)
+  
+  // 从根节点开始收集
+  rootNodes.value.forEach((node, index) => {
+    const tagName = Object.keys(node).find(key => !key.startsWith(':') && !key.startsWith('#'))
+    if (tagName) {
+      const path = `${tagName}[${index}]`
+      allPaths.add(path)
+      
+      const children = node[tagName]
+      if (Array.isArray(children)) {
+        collectPaths(children, path + '.' + tagName)
+      }
+    }
   })
   
   expandedNodes.value = allPaths
@@ -235,10 +262,10 @@ const copyXml = async () => {
   if (!isValidXml.value || !parsedXml.value) return
 
   try {
-    const xmlString = buildXml(parsedXml.value, {
-      format: true,
-      indentBy: '  ',
-    })
+    // 使用新的 buildXmlFromArray 处理 preserveOrder: true 的数组结构
+    const xmlString = Array.isArray(parsedXml.value)
+      ? buildXmlFromArray(parsedXml.value, { indent: '  ' })
+      : buildXml(parsedXml.value, { format: true, indentBy: '  ' })
 
     await navigator.clipboard.writeText(xmlString)
     emit('copy-success', xmlString)
@@ -324,6 +351,11 @@ defineExpose({
   border-radius: 6px;
   background: v-bind('currentTheme.colors.background');
   overflow: hidden;
+  /* 统一设置字体，避免子元素字体不一致 */
+  font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: v-bind('currentTheme.colors.text');
 }
 
 .xml-format__toolbar {
@@ -421,18 +453,18 @@ defineExpose({
 
 .xml-format__error pre {
   margin: 0;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .xml-format__viewer {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  color: v-bind('currentTheme.colors.text');
   min-height: 100%;
   width: 100%;
+}
+
+.xml-declaration {
+  opacity: 0.9;
+  font-style: italic;
 }
 </style>

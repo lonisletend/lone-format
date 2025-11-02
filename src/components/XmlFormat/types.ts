@@ -120,10 +120,9 @@ export interface XmlFormatOptions {
 
 /**
  * 解析后的 XML 数据结构（fast-xml-parser 格式）
+ * 使用 preserveOrder: true 时返回数组结构
  */
-export interface ParsedXml {
-  [key: string]: any
-}
+export type ParsedXml = any[] | { [key: string]: any }
 
 /**
  * XmlFormat 组件暴露的方法接口
