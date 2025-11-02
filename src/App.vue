@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
+import XmlFormat from './components/XmlFormat/index.vue'
 import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
 
 
@@ -9,6 +10,32 @@ const jsonFormatRef = ref<JsonFormatExposed>()
 const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
 const filterTestRef = ref<JsonFormatExposed>()
+
+// XML Format 测试数据
+const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
+<bookstore>
+  <book category="cooking" lang="en">
+    <title>Everyday Italian</title>
+    <author>Giada De Laurentiis</author>
+    <year>2005</year>
+    <price>30.00</price>
+  </book>
+  <book category="children">
+    <title>Harry Potter</title>
+    <author>J K. Rowling</author>
+    <year>2005</year>
+    <price>29.99</price>
+  </book>
+  <book category="web">
+    <title>Learning XML</title>
+    <author>Erik T. Ray</author>
+    <year>2003</year>
+    <price>39.95</price>
+  </book>
+</bookstore>`)
+
+const xmlTheme = ref<ThemeType>('min-light')
+
 
 // 主题演示相关
 const themeDemo = ref(`{
@@ -352,6 +379,9 @@ const activeTab = ref('interactive')
           </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'theme' }]" @click="activeTab = 'theme'">
           </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml' }]" @click="activeTab = 'xml'">
+            📄 XML Format
+          </button>
         </div>
 
         <!-- Tab 内容 -->
@@ -552,6 +582,39 @@ const activeTab = ref('interactive')
 
             <!-- 主题演示的 JsonFormat 组件 -->
             <JsonFormat v-model="themeDemo" :theme="selectedTheme" :show-toolbar="true" />
+          </div>
+
+          <!-- XML Format Tab -->
+          <div v-show="activeTab === 'xml'" class="component-item">
+            <h3>📄 XML Format Component</h3>
+            <p class="description">
+              XML 格式化组件演示。支持 XML 解析、树形展示、语法高亮、展开/折叠、复制、压缩等功能。
+            </p>
+
+            <!-- XML 主题选择器 -->
+            <div class="theme-selector">
+              <label for="xml-theme-select">选择主题：</label>
+              <select id="xml-theme-select" v-model="xmlTheme" class="theme-select">
+                <option value="github-light">GitHub Light</option>
+                <option value="github-dark">GitHub Dark</option>
+                <option value="min-light">Min Light</option>
+                <option value="slack-ochin">Slack Ochin</option>
+              </select>
+              <span class="current-theme-display">当前: {{ getThemeDisplayName(xmlTheme) }}</span>
+            </div>
+
+            <!-- XML 格式化组件 -->
+            <XmlFormat 
+              v-model="xmlExample" 
+              :theme="xmlTheme" 
+              :show-toolbar="true"
+              @copy-success="() => showMessage('XML 已复制到剪贴板！', 'success')"
+              @copy-error="() => showMessage('复制失败', 'error')"
+              @expand-all="() => showMessage('已展开所有节点', 'info')"
+              @collapse-all="() => showMessage('已折叠所有节点', 'info')"
+              @compress="() => showMessage('XML 已压缩', 'success')"
+              @format="() => showMessage('XML 已格式化', 'success')"
+            />
           </div>
 
           <!-- Interactive Editor Tab -->
