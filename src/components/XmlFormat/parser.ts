@@ -16,7 +16,7 @@ const defaultParserOptions = {
   ignoreDeclaration: false,       // 保留 XML 声明
   commentPropName: '#comment',    // 注释属性名
   cdataPropName: '__cdata',       // CDATA 属性名
-  preserveOrder: false,           // 不保留顺序（使用对象结构）
+  preserveOrder: true,            // 保留顺序（使用数组结构以保留注释位置）
   parseAttributeValue: false,     // 不解析属性值（保持字符串）
   trimValues: true,               // 去除首尾空白
   parseTagValue: false,           // 不解析标签值（保持字符串）
@@ -122,6 +122,10 @@ export const buildXml = (
  * 压缩 XML（移除格式化）
  */
 export const compressXml = (obj: ParsedXml): string => {
+  // 处理 preserveOrder: true 的数组结构
+  if (Array.isArray(obj)) {
+    return buildXmlFromArray(obj, { format: false })
+  }
   return buildXml(obj, { format: false, showDeclaration: false })
 }
 
@@ -133,6 +137,12 @@ export const formatXml = (
   options?: XmlFormatOptions
 ): string => {
   const parsed = parseXml(xmlString)
+  // 处理 preserveOrder: true 的数组结构
+  if (Array.isArray(parsed)) {
+    return buildXmlFromArray(parsed, { 
+      indent: options?.indentBy || '  '
+    })
+  }
   return buildXml(parsed, options)
 }
 
@@ -215,4 +225,92 @@ export const isEmptyNode = (node: any): boolean => {
   const keys = Object.keys(node)
   return keys.length === 0 || 
          (keys.length === 1 && keys[0].startsWith('@_'))
+}
+
+/**
+ * 从 preserveOrder 数组结构构建格式化的 XML 字符串
+ */
+export const buildXmlFromArray = (
+  data: any[],
+  options: { indent?: string; level?: number; format?: boolean } = {}
+): string => {
+  const indent = options.indent !== undefined ? options.indent : '  '
+  const level = options.level || 0
+  const format = options.format !== false // 默认格式化
+  const currentIndent = format ? indent.repeat(level) : ''
+  const lineBreak = format ? '\n' : ''
+  
+  let result = ''
+  
+  for (const item of data) {
+    // 处理 XML 声明
+    if (item['?xml']) {
+      const attrs = item[':@'] || {}
+      const attrStr = Object.entries(attrs)
+        .map(([key, value]) => {
+          // 移除 @_ 前缀
+          const attrName = key.startsWith('@_') ? key.substring(2) : key
+          return `${attrName}="${value}"`
+        })
+        .join(' ')
+      result += `<?xml ${attrStr}?>${lineBreak}`
+      continue
+    }
+    
+    // 处理注释
+    if (item['#comment']) {
+      const commentValue = item['#comment']
+      if (Array.isArray(commentValue) && commentValue.length > 0) {
+        const comment = commentValue[0]['#text'] || commentValue[0]
+        result += `${currentIndent}<!--${comment}-->${lineBreak}`
+      }
+      continue
+    }
+    
+    // 处理普通元素
+    const tagName = Object.keys(item).find(key => !key.startsWith(':') && !key.startsWith('#') && !key.startsWith('__'))
+    if (!tagName) continue
+    
+    const children = item[tagName]
+    const attributes = item[':@'] || {}
+    
+    // 构建属性字符串，移除 @_ 前缀
+    const attrStr = Object.entries(attributes)
+      .map(([key, value]) => {
+        const attrName = key.startsWith('@_') ? key.substring(2) : key
+        return `${attrName}="${value}"`
+      })
+      .join(' ')
+    const attrsPart = attrStr ? ' ' + attrStr : ''
+    
+    // 检查是否有子元素
+    if (!Array.isArray(children) || children.length === 0) {
+      result += `${currentIndent}<${tagName}${attrsPart}/>${lineBreak}`
+      continue
+    }
+    
+    // 检查是否为简单文本节点
+    const hasOnlyText = children.length === 1 && children[0]['#text'] !== undefined
+    const hasCdata = children.some((child: any) => child['__cdata'])
+    
+    if (hasCdata) {
+      // 处理 CDATA
+      const cdataChild = children.find((child: any) => child['__cdata'])
+      if (cdataChild) {
+        const cdataContent = cdataChild['__cdata'][0]['#text'] || ''
+        result += `${currentIndent}<${tagName}${attrsPart}><![CDATA[${cdataContent}]]></${tagName}>${lineBreak}`
+      }
+    } else if (hasOnlyText) {
+      // 简单文本节点 - 单行显示
+      const text = children[0]['#text']
+      result += `${currentIndent}<${tagName}${attrsPart}>${text}</${tagName}>${lineBreak}`
+    } else {
+      // 有子元素 - 多行显示
+      result += `${currentIndent}<${tagName}${attrsPart}>${lineBreak}`
+      result += buildXmlFromArray(children, { indent, level: level + 1, format })
+      result += `${currentIndent}</${tagName}>${lineBreak}`
+    }
+  }
+  
+  return result
 }
