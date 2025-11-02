@@ -150,7 +150,8 @@ const rootNodes = computed(() => {
 // 解析 XML
 const parseXmlString = (xmlString: string) => {
   if (!xmlString || !xmlString.trim()) {
-    parseError.value = 'XML string is empty'
+    // 输入为空时，清空所有状态，不显示错误
+    parseError.value = ''
     parsedXml.value = null
     return
   }
@@ -168,11 +169,9 @@ const parseXmlString = (xmlString: string) => {
     parsedXml.value = parseXml(xmlString)
     parseError.value = ''
 
-    // 默认展开根节点
+    // 默认展开所有节点
     nextTick(() => {
-      Object.keys(rootNodes.value).forEach(key => {
-        expandedNodes.value.add(key)
-      })
+      expandAll()
     })
   } catch (error) {
     parseError.value = error instanceof Error ? error.message : 'Unknown parse error'
@@ -195,7 +194,9 @@ const expandAll = () => {
   
   const collectPaths = (obj: any, currentPath: string = '') => {
     if (obj !== null && typeof obj === 'object') {
-      if (currentPath) allPaths.add(currentPath)
+      if (currentPath) {
+        allPaths.add(currentPath)
+      }
       
       Object.keys(obj).forEach(key => {
         if (key.startsWith('@_') || key === '#text') return
@@ -378,9 +379,9 @@ watch(() => props.modelValue, (newValue) => {
 }
 
 .xml-format__content {
-  padding: 16px;
+  padding: 8px 16px 8px 16px;
   overflow: auto;
-  max-height: 600px;
+  height: 100%;
   text-align: left;
 }
 
@@ -410,5 +411,7 @@ watch(() => props.modelValue, (newValue) => {
   font-size: 14px;
   line-height: 1.6;
   color: v-bind('currentTheme.colors.text');
+  min-height: 100%;
+  width: 100%;
 }
 </style>

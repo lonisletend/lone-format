@@ -261,7 +261,14 @@ const toggleCollapse = () => {
 
 // 生成子节点路径
 const childPath = (childTag: string, index: number): string => {
-  return `${currentPath.value}.${childTag}[${index}]`
+  // 计算同名标签的索引
+  let tagIndex = 0
+  for (let i = 0; i < index; i++) {
+    if (children.value[i].tagName === childTag) {
+      tagIndex++
+    }
+  }
+  return `${currentPath.value}.${childTag}[${tagIndex}]`
 }
 
 // 生成子节点 key
