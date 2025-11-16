@@ -39,11 +39,6 @@ export const githubLightTheme: ThemeConfig = {
     syntaxKey: '#0969da',
     syntaxBracket: '#24292f',
 
-    // 滚动条
-    scrollbarTrack: '#f6f8fa',
-    scrollbarThumb: '#d0d7de',
-    scrollbarThumbHover: '#afb8c1',
-
     // 悬停效果
     hoverBackground: '#f6f8fa',
 
@@ -90,11 +85,6 @@ export const githubDarkTheme: ThemeConfig = {
     syntaxNull: '#7d8590',
     syntaxKey: '#79c0ff',
     syntaxBracket: '#e6edf3',
-
-    // 滚动条
-    scrollbarTrack: '#161b22',
-    scrollbarThumb: '#30363d',
-    scrollbarThumbHover: '#6e7681',
 
     // 悬停效果
     hoverBackground: '#161b22',
@@ -143,11 +133,6 @@ export const minLightTheme: ThemeConfig = {
     syntaxKey: '#1f2937',
     syntaxBracket: '#374151',
 
-    // 滚动条 - 极简
-    scrollbarTrack: '#f5f5f5',
-    scrollbarThumb: '#d1d5db',
-    scrollbarThumbHover: '#9ca3af',
-
     // 悬停效果
     hoverBackground: '#f9f9f9',
 
@@ -194,11 +179,6 @@ export const slackOchinTheme: ThemeConfig = {
     syntaxNull: '#8b7355',
     syntaxKey: '#4a3b2a',
     syntaxBracket: '#6b5444',
-
-    // 滚动条 - 暖色调
-    scrollbarTrack: '#f4ede4',
-    scrollbarThumb: '#e8d5b7',
-    scrollbarThumbHover: '#d4c4a8',
 
     // 悬停效果
     hoverBackground: '#f8f2eb',
