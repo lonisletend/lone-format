@@ -2,7 +2,7 @@ name: Auto Publish and Merge
 
 on:
   push:
-    branches: [ publish ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       version_type:
@@ -23,13 +23,15 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
     
     steps:
-    - name: Checkout publish branch
+    - name: Checkout main branch
       uses: actions/checkout@v4
       with:
-        ref: publish
-        token: ${{ github.token }}
+        ref: main
+        token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0
 
     - name: Setup Node.js
@@ -63,7 +65,7 @@ jobs:
           fi
         fi
 
-    - name: Bump version
+    - name: Bump version on main branch
       id: bump_version
       run: |
         OLD_VERSION=$(node -p "require('./package.json').version")
@@ -72,15 +74,29 @@ jobs:
         echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
         echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-    - name: Commit version bump
+    - name: Commit version bump to main
       run: |
         git add package.json package-lock.json
         git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }} [skip ci]"
+        git push origin main
+
+    - name: Merge main to publish branch
+      run: |
+        echo "Fetching publish branch..."
+        git fetch origin publish:publish || git checkout -b publish
+        
+        echo "Switching to publish branch..."
+        git checkout publish
+        
+        echo "Merging main into publish..."
+        git merge main --no-ff -m "chore: merge main v${{ steps.bump_version.outputs.new_version }} to publish [skip ci]"
+        
+        echo "Pushing publish branch..."
         git push origin publish
 
     - name: Build library
       run: |
-        echo "Building library..."
+        echo "Building library on publish branch..."
         npm run build:lib
 
     - name: Publish to npm
@@ -88,55 +104,10 @@ jobs:
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-    - name: Create and merge PR to main
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
+    - name: Create Git Tag
       run: |
-        echo "Creating PR to merge publish to main..."
-        
-        # Ensure we're on the publish branch
-        git checkout publish
-        
-        # Check if there are differences between publish and main
-        if git diff --quiet origin/main..publish; then
-          echo "No differences between publish and main, skipping PR creation"
-          exit 0
-        fi
-        
-        # Create PR using GitHub CLI
-        PR_URL=$(gh pr create \
-          --title "chore: release v${{ steps.bump_version.outputs.new_version }}" \
-          --body "## 🚀 Release v${{ steps.bump_version.outputs.new_version }}
-
-        This PR merges the publish branch to main after successful npm publication.
-
-        ### Changes
-        - Version bumped from \`${{ steps.bump_version.outputs.old_version }}\` to \`${{ steps.bump_version.outputs.new_version }}\`
-        - Package published to npm successfully
-
-        ### Auto-merge
-        This PR will be automatically merged." \
-          --base main \
-          --head publish 2>/dev/null || echo "PR creation failed, trying alternative method...")
-        
-        if [ -n "$PR_URL" ]; then
-          echo "PR created: $PR_URL"
-          
-          # Extract PR number from URL
-          PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]\+$')
-          echo "PR Number: $PR_NUMBER"
-          
-          # Enable auto-merge and merge immediately
-          echo "Auto-merging PR #$PR_NUMBER..."
-          gh pr merge $PR_NUMBER --squash --auto || gh pr merge $PR_NUMBER --squash
-        else
-          echo "Failed to create PR, attempting direct merge..."
-          # Alternative: directly merge publish to main
-          git checkout main
-          git pull origin main
-          git merge publish --no-ff -m "chore: release v${{ steps.bump_version.outputs.new_version }}"
-          git push origin main
-        fi
+        git tag "v${{ steps.bump_version.outputs.new_version }}"
+        git push origin "v${{ steps.bump_version.outputs.new_version }}"
 
   notify:
     needs: publish
@@ -146,11 +117,11 @@ jobs:
     - name: Notify success
       if: needs.publish.result == 'success'
       run: |
-        echo "✅ Successfully published and merged to main!"
-        echo "::notice title=Publication Success::Package published to npm and merged to main branch"
+        echo "✅ Successfully published to npm!"
+        echo "::notice title=Publication Success::Version ${{ needs.publish.outputs.new_version }} published to npm and publish branch updated"
     
     - name: Notify failure
       if: needs.publish.result == 'failure'
       run: |
-        echo "❌ Publication or merge failed!"
+        echo "❌ Publication failed!"
         echo "::error title=Publication Failed::Check the logs for details"

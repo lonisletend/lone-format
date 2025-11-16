@@ -55,11 +55,6 @@ export interface ThemeConfig {
     syntaxKey: string
     syntaxBracket: string
 
-    // 滚动条
-    scrollbarTrack: string
-    scrollbarThumb: string
-    scrollbarThumbHover: string
-
     // 悬停效果
     hoverBackground: string
 

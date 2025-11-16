@@ -785,23 +785,4 @@ defineExpose({
 .json-format__viewer {
   color: v-bind('currentTheme.colors.text');
 }
-
-/* 滚动条样式 */
-.json-format__content::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-.json-format__content::-webkit-scrollbar-track {
-  background: v-bind('currentTheme.colors.scrollbarTrack');
-}
-
-.json-format__content::-webkit-scrollbar-thumb {
-  background: v-bind('currentTheme.colors.scrollbarThumb');
-  border-radius: 2px;
-}
-
-.json-format__content::-webkit-scrollbar-thumb:hover {
-  background: v-bind('currentTheme.colors.scrollbarThumbHover');
-}
 </style>
