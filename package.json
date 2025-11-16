@@ -1,6 +1,6 @@
 {
   "name": "lone-format",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
   "description": "A Vue 3 component library for formatting with tree-shaking support",
   "main": "./dist/lone-format.umd.cjs",
@@ -38,8 +38,10 @@
   },
   "dependencies": {
     "@types/json-bigint": "^1.0.4",
+    "fast-xml-parser": "^5.3.0",
     "json-bigint": "^1.0.0",
-    "jsonpath-plus": "^10.3.0"
+    "jsonpath-plus": "^10.3.0",
+    "xpath": "^0.0.34"
   },
   "peerDependencies": {
     "vue": ">=3.0.0"

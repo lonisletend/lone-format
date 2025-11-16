@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
+import XmlFormat from './components/XmlFormat/index.vue'
 import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
 
 
@@ -9,6 +10,30 @@ const jsonFormatRef = ref<JsonFormatExposed>()
 const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
 const filterTestRef = ref<JsonFormatExposed>()
+
+// XML Format 测试数据
+const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
+<!-- 这是图书馆的 XML 数据 -->
+<library>
+  <!-- 第一本书：TypeScript -->
+  <book id="1" category="programming">
+    <title lang="en">Learning TypeScript</title>
+    <author>Josh Goldberg</author>
+    <year>2022</year>
+    <price currency="USD">39.99</price>
+    <example><![CDATA[const add = (a, b) => a + b; console.log(add(2, 3)); // 5]]></example>
+  </book>
+  <!-- 第二本书：Vue.js -->
+  <book id="2" category="web">
+    <title lang="en">Vue.js 3 Cookbook</title>
+    <author>Heitor Ramon Ribeiro</author>
+    <year>2023</year>
+    <price currency="USD">44.99</price>
+  </book>
+</library>`)
+
+const xmlTheme = ref<ThemeType>('min-light')
+
 
 // 主题演示相关
 const themeDemo = ref(`{
@@ -305,6 +330,41 @@ const invalidJson = ref(`{
 // 互动式编辑器的数据
 const interactiveJson = ref(`{"status":200,"text":"","error":null,"data":[{"news_id":123456789012345678901234567890,"title":"iPhone X Review: Innovative future with real black technology","source":"Netease phone","rating":0.5},{"news_id":123456789012345678901234567891,"title":"Traffic paradise: How to design streets for people and unmanned vehicles in the future?","source":"Netease smart","link":"http://netease.smart/traffic-paradise/1235","rating":0.60},{"news_id":123456789012345678901234567892,"title":"Teslamask's American Business Relations: The government does not pay billions to build factories","source":"AI Finance","rating":0.8000,"members":["Daniel","Mike","John"]}]}`)
 
+// XML 互动式编辑器的数据
+const interactiveXml = ref(`<?xml version="1.0" encoding="UTF-8"?>
+<library>
+  <book id="1" category="programming">
+    <title lang="en">Learning TypeScript</title>
+    <author>Josh Goldberg</author>
+    <year>2022</year>
+    <price currency="USD">39.99</price>
+    <publisher>
+      <name>O'Reilly Media</name>
+      <location>Sebastopol, CA</location>
+    </publisher>
+    <tags>
+      <tag>TypeScript</tag>
+      <tag>JavaScript</tag>
+      <tag>Web Development</tag>
+    </tags>
+  </book>
+  <book id="2" category="web">
+    <title lang="en">Vue.js 3 Cookbook</title>
+    <author>Heitor Ramon Ribeiro</author>
+    <year>2023</year>
+    <price currency="USD">44.99</price>
+    <publisher>
+      <name>Packt Publishing</name>
+      <location>Birmingham, UK</location>
+    </publisher>
+    <tags>
+      <tag>Vue.js</tag>
+      <tag>Frontend</tag>
+      <tag>Framework</tag>
+    </tags>
+  </book>
+</library>`)
+
 // Tab 管理
 const activeTab = ref('interactive')
 </script>
@@ -317,10 +377,6 @@ const activeTab = ref('interactive')
 
       <!-- 主题切换控制 -->
       <!-- Theme control removed - now using tab-specific theme demo -->
-
-
-      �
-
     </header>
 
     <main class="app-main">
@@ -351,6 +407,12 @@ const activeTab = ref('interactive')
             ❌ Invalid JSON
           </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'theme' }]" @click="activeTab = 'theme'">
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml' }]" @click="activeTab = 'xml'">
+            📄 XML Format
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-interactive' }]" @click="activeTab = 'xml-interactive'">
+            🚀 XML Interactive
           </button>
         </div>
 
@@ -554,6 +616,39 @@ const activeTab = ref('interactive')
             <JsonFormat v-model="themeDemo" :theme="selectedTheme" :show-toolbar="true" />
           </div>
 
+          <!-- XML Format Tab -->
+          <div v-show="activeTab === 'xml'" class="component-item">
+            <h3>📄 XML Format Component</h3>
+            <p class="description">
+              XML 格式化组件演示。支持 XML 解析、树形展示、语法高亮、展开/折叠、复制、压缩等功能。
+            </p>
+
+            <!-- XML 主题选择器 -->
+            <div class="theme-selector">
+              <label for="xml-theme-select">选择主题：</label>
+              <select id="xml-theme-select" v-model="xmlTheme" class="theme-select">
+                <option value="github-light">GitHub Light</option>
+                <option value="github-dark">GitHub Dark</option>
+                <option value="min-light">Min Light</option>
+                <option value="slack-ochin">Slack Ochin</option>
+              </select>
+              <span class="current-theme-display">当前: {{ getThemeDisplayName(xmlTheme) }}</span>
+            </div>
+
+            <!-- XML 格式化组件 -->
+            <XmlFormat 
+              v-model="xmlExample" 
+              :theme="xmlTheme" 
+              :show-toolbar="true"
+              @copy-success="() => showMessage('XML 已复制到剪贴板！', 'success')"
+              @copy-error="() => showMessage('复制失败', 'error')"
+              @expand-all="() => showMessage('已展开所有节点', 'info')"
+              @collapse-all="() => showMessage('已折叠所有节点', 'info')"
+              @compress="() => showMessage('XML 已压缩', 'success')"
+              @format="() => showMessage('XML 已格式化', 'success')"
+            />
+          </div>
+
           <!-- Interactive Editor Tab -->
           <div v-show="activeTab === 'interactive'" class="component-item component-item--full">
             <h3>🚀 Interactive JSON Editor</h3>
@@ -579,6 +674,36 @@ const activeTab = ref('interactive')
                 </div>
                 <div class="json-format-wrapper">
                   <JsonFormat v-model="interactiveJson" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- XML Interactive Editor Tab -->
+          <div v-show="activeTab === 'xml-interactive'" class="component-item component-item--full">
+            <h3>🚀 Interactive XML Editor</h3>
+            <p class="description">
+              双向编辑器：左侧输入 XML 字符串，右侧实时预览格式化结果。
+              你可以在左侧编辑原始 XML，右侧会实时显示树形结构。
+            </p>
+
+            <div class="interactive-editor">
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>📝 XML Input</h4>
+                  <span class="panel-info">原始 XML 字符串</span>
+                </div>
+                <textarea v-model="interactiveXml" class="json-textarea" placeholder="在这里输入 XML 字符串..."
+                  spellcheck="false"></textarea>
+              </div>
+
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>🎨 Formatted View</h4>
+                  <span class="panel-info">格式化预览</span>
+                </div>
+                <div class="json-format-wrapper">
+                  <XmlFormat v-model="interactiveXml" />
                 </div>
               </div>
             </div>
