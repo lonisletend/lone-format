@@ -96,6 +96,7 @@ const isEditingKey = ref(false)
 const isEditingValue = ref(false)
 const editingKeyValue = ref('')
 const editingValueValue = ref('')
+const originalValueType = ref<'string' | 'number' | 'boolean' | 'null' | 'protected-number'>('string') // 记录原始值类型
 
 // 辅助函数：检查是否为被保护的数字对象
 const isProtectedNumberObject = (value: any): boolean => {
@@ -242,6 +243,19 @@ const editValue = () => {
 
   isEditingValue.value = true
 
+  // 记录原始值的类型
+  if (props.value === null) {
+    originalValueType.value = 'null'
+  } else if (isProtectedNumberObject(props.value)) {
+    originalValueType.value = 'protected-number'
+  } else if (typeof props.value === 'string') {
+    originalValueType.value = 'string'
+  } else if (typeof props.value === 'number') {
+    originalValueType.value = 'number'
+  } else if (typeof props.value === 'boolean') {
+    originalValueType.value = 'boolean'
+  }
+
   // 设置编辑初始值
   if (isProtectedNumberObject(props.value)) {
     // 被保护的数字对象，使用其数字值
@@ -297,24 +311,40 @@ const saveValueEdit = () => {
     let newValue: any
     const trimmed = editingValueValue.value.trim()
 
-    // 尝试解析值
-    if (trimmed === 'null') {
-      newValue = null
-    } else if (trimmed === 'true' || trimmed === 'false') {
-      newValue = trimmed === 'true'
-    } else if (!isNaN(Number(trimmed)) && trimmed !== '') {
-      // 检查是否为大数字
-      const num = Number(trimmed)
-      if (!Number.isSafeInteger(num) || trimmed.length > 15) {
-        // 大数字使用保护对象格式，保持数字类型
-        newValue = { __protected_number__: trimmed }
+    // 如果原始值是字符串类型，保持为字符串（除非用户明确修改）
+    if (originalValueType.value === 'string') {
+      // 检查用户是否想要转换类型
+      if (trimmed === 'null') {
+        newValue = null
+      } else if (trimmed === 'true' || trimmed === 'false') {
+        newValue = trimmed === 'true'
       } else {
-        // 普通数字
-        newValue = num
+        // 保持为字符串，即使内容看起来像数字
+        newValue = editingValueValue.value
       }
+    } else if (originalValueType.value === 'protected-number') {
+      // 原本是受保护的大数字，继续保持这个格式
+      newValue = { __protected_number__: trimmed }
     } else {
-      // 字符串值
-      newValue = editingValueValue.value
+      // 原本是其他类型（number, boolean, null），按照常规逻辑解析
+      if (trimmed === 'null') {
+        newValue = null
+      } else if (trimmed === 'true' || trimmed === 'false') {
+        newValue = trimmed === 'true'
+      } else if (!isNaN(Number(trimmed)) && trimmed !== '') {
+        // 检查是否为大数字
+        const num = Number(trimmed)
+        if (!Number.isSafeInteger(num) || trimmed.length > 15) {
+          // 大数字使用保护对象格式，保持数字类型
+          newValue = { __protected_number__: trimmed }
+        } else {
+          // 普通数字
+          newValue = num
+        }
+      } else {
+        // 字符串值
+        newValue = editingValueValue.value
+      }
     }
 
     emit('update:value', currentPath.value, newValue)
