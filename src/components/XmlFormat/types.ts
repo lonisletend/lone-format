@@ -86,6 +86,10 @@ export interface ThemeConfig {
     xmlBracket: string         // < > 括号
     xmlEquals: string          // = 号
     xmlQuote: string           // 引号
+
+    // 折叠效果
+    collapsedBackground: string // 折叠信息背景色
+    collapsedText: string       // 折叠信息文本色
   }
 }
 

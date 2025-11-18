@@ -52,6 +52,55 @@
       
       <!-- 有子元素或可折叠的复杂元素 -->
       <div v-else>
+        <!-- 折叠状态：显示完整的开始和结束标签 -->
+        <div v-if="!isExpanded && hasChildren" class="xml-node__line">
+          <!-- 开始标签 - 可点击展开 -->
+          <span
+            class="xml-node__clickable-part"
+            @click="toggleCollapse()"
+            :title="'Click to expand'"
+            ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+            ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+          ></span>
+          <!-- 属性列表 -->
+          <span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
+            ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+            ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
+            ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+            ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+            ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+          ></span>
+          <!-- 右括号 - 可点击展开 -->
+          <span
+            class="xml-node__clickable-part"
+            @click="toggleCollapse()"
+            :title="'Click to expand'"
+            ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
+          ></span>
+          <!-- 折叠信息：显示子标签数量 -->
+          <span 
+            class="xml-node__collapsed-badge" 
+            :style="{ 
+              backgroundColor: theme.colors.collapsedBackground,
+              color: theme.colors.collapsedText
+            }"
+            @click="toggleCollapse()"
+            :title="`Click to expand ${collapsedChildrenCount} child element${collapsedChildrenCount > 1 ? 's' : ''}`"
+          >{{ collapsedChildrenCount }} child{{ collapsedChildrenCount > 1 ? 'ren' : '' }}</span>
+          <!-- 结束标签 - 可点击展开 -->
+          <span
+            class="xml-node__clickable-part"
+            @click="toggleCollapse()"
+            :title="'Click to expand'"
+          >
+            <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span>
+            <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
+            <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
+          </span>
+        </div>
+
+        <!-- 展开状态：原有的结构 -->
+        <template v-else>
         <!-- 开始标签 -->
         <div class="xml-node__line">
           <!-- 可点击的部分：左括号和标签名 -->
@@ -86,14 +135,6 @@
           ></span>
           <!-- 无子节点时的自闭合标签 -->
           <span v-else class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">{{ hasChildren ? '&gt;' : '/&gt;' }}</span>
-          <!-- 折叠提示：可点击展开 -->
-          <span 
-            v-if="!isExpanded && hasChildren" 
-            class="xml-node__collapsed xml-node__collapsed--clickable" 
-            :style="{ color: theme.colors.textSecondary }"
-            @click="toggleCollapse()"
-            title="Click to expand"
-          >...</span>
         </div>
 
         <!-- 子节点 -->
@@ -132,6 +173,7 @@
             <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
           </span>
         </div>
+        </template>
       </div>
     </div>
   </div>
@@ -256,6 +298,15 @@ const hasChildren = computed(() => {
   })
 })
 
+// 计算折叠的子标签数量
+const collapsedChildrenCount = computed(() => {
+  if (!hasChildren.value) return 0
+  return children.value.filter((child: any) => {
+    const keys = Object.keys(child)
+    return keys.some(key => !key.startsWith('#') && !key.startsWith(':'))
+  }).length
+})
+
 // 是否是简单文本元素
 const isSimpleTextElement = computed(() => {
   return nodeType.value === 'element' && 
@@ -294,7 +345,7 @@ const childPath = (): string => {
 
 .xml-node__clickable-part {
   cursor: pointer;
-  user-select: none;
+  /* user-select: none; */
   display: inline-block;
   border-radius: 3px;
   transition: background-color 0.15s ease;
@@ -318,6 +369,24 @@ const childPath = (): string => {
 
 .xml-node__attr-value {
   font-style: normal;
+}
+
+.xml-node__collapsed-badge {
+  margin: 0 6px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.xml-node__collapsed-badge:hover {
+  opacity: 0.85;
+  transform: scale(1.05);
 }
 
 .xml-node__collapsed {

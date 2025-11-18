@@ -58,6 +58,11 @@ export interface ThemeConfig {
     // 悬停效果
     hoverBackground: string
 
+    // 折叠信息样式
+    collapsedBackground: string
+    collapsedBackgroundHover: string
+    collapsedText: string
+
     // 缩进线
     indentLine: string
   }
