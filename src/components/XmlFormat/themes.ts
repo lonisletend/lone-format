@@ -47,6 +47,10 @@ const githubLight: ThemeConfig = {
     xmlBracket: '#6e7781',      // 括号 - 灰色
     xmlEquals: '#6e7781',       // 等号 - 灰色
     xmlQuote: '#0550ae',        // 引号 - 蓝色
+
+    // 折叠效果
+    collapsedBackground: '#ddf4ff', // 折叠信息背景色 - 浅蓝
+    collapsedText: '#0969da',       // 折叠信息文本色 - 蓝色
   },
 }
 
@@ -92,6 +96,10 @@ const githubDark: ThemeConfig = {
     xmlBracket: '#8b949e',      // 括号 - 灰色
     xmlEquals: '#8b949e',       // 等号 - 灰色
     xmlQuote: '#79c0ff',        // 引号 - 亮蓝色
+
+    // 折叠效果
+    collapsedBackground: '#1c2d41', // 折叠信息背景色 - 深蓝
+    collapsedText: '#58a6ff',       // 折叠信息文本色 - 亮蓝
   },
 }
 
@@ -137,6 +145,10 @@ const minLight: ThemeConfig = {
     xmlBracket: '#737373',      // 括号 - 灰色
     xmlEquals: '#737373',       // 等号 - 灰色
     xmlQuote: '#2563eb',        // 引号 - 蓝色
+
+    // 折叠效果
+    collapsedBackground: '#dbeafe', // 折叠信息背景色 - 浅蓝
+    collapsedText: '#1d4ed8',       // 折叠信息文本色 - 蓝色
   },
 }
 
@@ -182,6 +194,10 @@ const slackOchin: ThemeConfig = {
     xmlBracket: '#616061',      // 括号 - 灰色
     xmlEquals: '#616061',       // 等号 - 灰色
     xmlQuote: '#1264a3',        // 引号 - 蓝色
+
+    // 折叠效果
+    collapsedBackground: '#d8eaf5', // 折叠信息背景色 - 浅蓝
+    collapsedText: '#0b4c8c',       // 折叠信息文本色 - 深蓝
   },
 }
 

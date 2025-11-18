@@ -42,6 +42,11 @@ export const githubLightTheme: ThemeConfig = {
     // 悬停效果
     hoverBackground: '#f6f8fa',
 
+    // 折叠信息样式
+    collapsedBackground: '#ddf4ff',
+    collapsedBackgroundHover: '#b6e3ff',
+    collapsedText: '#0969da',
+
     // 缩进线
     indentLine: '#d0d7de'
   }
@@ -88,6 +93,11 @@ export const githubDarkTheme: ThemeConfig = {
 
     // 悬停效果
     hoverBackground: '#161b22',
+
+    // 折叠信息样式
+    collapsedBackground: '#1c2128',
+    collapsedBackgroundHover: '#2d333b',
+    collapsedText: '#79c0ff',
 
     // 缩进线
     indentLine: '#30363d'
@@ -136,6 +146,11 @@ export const minLightTheme: ThemeConfig = {
     // 悬停效果
     hoverBackground: '#f9f9f9',
 
+    // 折叠信息样式
+    collapsedBackground: '#e0f2fe',
+    collapsedBackgroundHover: '#bae6fd',
+    collapsedText: '#0284c7',
+
     // 缩进线
     indentLine: '#e5e7eb'
   }
@@ -182,6 +197,11 @@ export const slackOchinTheme: ThemeConfig = {
 
     // 悬停效果
     hoverBackground: '#f8f2eb',
+
+    // 折叠信息样式
+    collapsedBackground: '#ffe8d6',
+    collapsedBackgroundHover: '#ffd4b0',
+    collapsedText: '#d73502',
 
     // 缩进线
     indentLine: '#e8d5b7'

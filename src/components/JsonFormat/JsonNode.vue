@@ -15,11 +15,14 @@
           {{ openBracket }}
         </span>
 
-        <span v-if="!isExpanded" class="json-node__collapsed">
+        <span v-if="!isExpanded" class="json-node__collapsed-info" @click="toggleCollapse" 
+          :title="`Click to expand ${collapsedPreview.trim()}`">
           {{ collapsedPreview }}
-          <span class="json-node__bracket json-node__bracket--clickable" @click="toggleCollapse">
-            {{ closeBracket }}
-          </span>
+        </span>
+
+        <span v-if="!isExpanded" class="json-node__bracket json-node__bracket--clickable" @click="toggleCollapse"
+          :title="'Click to expand'">
+          {{ closeBracket }}
         </span><span v-if="!isExpanded && !isLast" class="json-node__comma">,</span>
       </div>
 
@@ -405,10 +408,25 @@ defineOptions({
   margin-left: 2px;
 }
 
-.json-node__collapsed {
-  color: v-bind('theme.colors.textSecondary');
-  font-style: italic;
-  margin: 0 4px;
+.json-node__collapsed-info {
+  color: v-bind('theme.colors.collapsedText');
+  background-color: v-bind('theme.colors.collapsedBackground');
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  margin: 0 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.json-node__collapsed-info:hover {
+  opacity: 0.85;
+  transform: scale(1.05);
+  background-color: v-bind('theme.colors.collapsedBackgroundHover');
 }
 
 .json-node__value {
