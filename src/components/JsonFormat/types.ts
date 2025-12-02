@@ -57,6 +57,9 @@ export interface ThemeConfig {
 
     // 悬停效果
     hoverBackground: string
+    
+    // 选中背景色
+    selectionBackground: string
 
     // 折叠信息样式
     collapsedBackground: string

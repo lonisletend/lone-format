@@ -42,6 +42,9 @@ export const githubLightTheme: ThemeConfig = {
     // 悬停效果
     hoverBackground: '#f6f8fa',
 
+    // 选中背景色
+    selectionBackground: 'rgba(9, 105, 218, 0.2)',
+
     // 折叠信息样式
     collapsedBackground: '#ddf4ff',
     collapsedBackgroundHover: '#b6e3ff',
@@ -93,6 +96,9 @@ export const githubDarkTheme: ThemeConfig = {
 
     // 悬停效果
     hoverBackground: '#161b22',
+
+    // 选中背景色
+    selectionBackground: 'rgba(121, 192, 255, 0.2)',
 
     // 折叠信息样式
     collapsedBackground: '#1c2128',
@@ -146,6 +152,9 @@ export const minLightTheme: ThemeConfig = {
     // 悬停效果
     hoverBackground: '#f9f9f9',
 
+    // 选中背景色
+    selectionBackground: 'rgba(59, 130, 246, 0.2)',
+
     // 折叠信息样式
     collapsedBackground: '#e0f2fe',
     collapsedBackgroundHover: '#bae6fd',
@@ -197,6 +206,9 @@ export const slackOchinTheme: ThemeConfig = {
 
     // 悬停效果
     hoverBackground: '#f8f2eb',
+
+    // 选中背景色
+    selectionBackground: 'rgba(255, 107, 53, 0.2)',
 
     // 折叠信息样式
     collapsedBackground: '#ffe8d6',

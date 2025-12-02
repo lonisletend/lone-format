@@ -3,11 +3,16 @@
     <!-- 对象或数组 -->
     <div v-if="isObjectOrArray" class="json-node__container">
       <div class="json-node__line">
-        <span v-if="keyName && !isEditingKey" class="json-node__key" @click="editKey" :title="'Click to edit key'">
-          "{{ displayKey }}"
+        <span v-if="keyName" class="json-node__key" 
+          :contenteditable="isEditingKey"
+          @dblclick="editKey" 
+          @keydown.enter.prevent="saveKeyEdit"
+          @keydown.escape="cancelKeyEdit"
+          @blur="saveKeyEdit"
+          ref="keyRef"
+          :title="'Double-click to edit key'">
+          {{ isEditingKey ? editingKeyValue : `"${displayKey}"` }}
         </span>
-        <input v-if="keyName && isEditingKey" v-model="editingKeyValue" @keyup.enter="saveKeyEdit"
-          @keyup.escape="cancelKeyEdit" @blur="saveKeyEdit" class="json-node__key-input" />
         <span v-if="keyName" class="json-node__colon">: </span>
 
         <span class="json-node__bracket json-node__bracket--clickable" @click="toggleCollapse"
@@ -48,19 +53,30 @@
 
     <!-- 基本类型值 -->
     <div v-else class="json-node__primitive">
-      <span v-if="keyName && !isEditingKey" class="json-node__key" @click="editKey" :title="'Click to edit key'">
-        "{{ displayKey }}"
+      <span v-if="keyName" class="json-node__key" 
+        :contenteditable="isEditingKey"
+        @dblclick="editKey" 
+        @keydown.enter.prevent="saveKeyEdit"
+        @keydown.escape="cancelKeyEdit"
+        @blur="saveKeyEdit"
+        ref="keyRef"
+        :title="'Double-click to edit key'">
+        {{ isEditingKey ? editingKeyValue : `"${displayKey}"` }}
       </span>
-      <input v-if="keyName && isEditingKey" v-model="editingKeyValue" @keyup.enter="saveKeyEdit"
-        @keyup.escape="cancelKeyEdit" @blur="saveKeyEdit" class="json-node__key-input" />
       <span v-if="keyName" class="json-node__colon">: </span>
 
-      <span v-if="!isEditingValue" class="json-node__value" :class="valueClass" @click="editValue"
-        @dblclick="$emit('copy', value)" :title="valueTitle">
-        {{ formattedValue }}<span v-if="!isLast" class="json-node__comma">,</span>
+      <span class="json-node__value-wrapper" :class="valueClass" @dblclick="editValue" :title="valueTitle">
+        <span class="json-node__value" 
+          :contenteditable="isEditingValue"
+          @keydown.enter.prevent="saveValueEdit"
+          @keydown.escape="cancelValueEdit"
+          @blur="saveValueEdit"
+          ref="valueRef"
+        >
+          {{ isEditingValue ? editingValueValue : formattedValue }}
+        </span>
+        <span v-if="!isLast" class="json-node__comma">,</span>
       </span>
-      <input v-if="isEditingValue" v-model="editingValueValue" @keyup.enter="saveValueEdit"
-        @keyup.escape="cancelValueEdit" @blur="saveValueEdit" class="json-node__value-input" />
     </div>
   </div>
 </template>
@@ -97,6 +113,8 @@ const isEditingValue = ref(false)
 const editingKeyValue = ref('')
 const editingValueValue = ref('')
 const originalValueType = ref<'string' | 'number' | 'boolean' | 'null' | 'protected-number'>('string') // 记录原始值类型
+const keyRef = ref<HTMLElement | null>(null)
+const valueRef = ref<HTMLElement | null>(null)
 
 // 辅助函数：检查是否为被保护的数字对象
 const isProtectedNumberObject = (value: any): boolean => {
@@ -179,10 +197,6 @@ const valueClass = computed(() => {
 })
 
 const formattedValue = computed(() => {
-  if (isEditingValue.value) {
-    return editingValueValue.value
-  }
-
   if (props.value === null) return 'null'
   if (typeof props.value === 'boolean') return String(props.value)
   if (typeof props.value === 'number') return String(props.value)
@@ -200,7 +214,7 @@ const formattedValue = computed(() => {
 })
 
 const valueTitle = computed(() => {
-  return 'Click to edit, double-click to copy'
+  return 'Double-click to edit'
 })
 
 // 方法
@@ -229,11 +243,14 @@ const editKey = () => {
 
   // 使用 nextTick 确保 DOM 更新后再聚焦
   nextTick(() => {
-    const inputs = document.querySelectorAll('.json-node__key-input')
-    const input = inputs[inputs.length - 1] as HTMLInputElement // 使用最后一个，即刚创建的
-    if (input) {
-      input.focus()
-      input.select()
+    if (keyRef.value) {
+      keyRef.value.focus()
+      // 选中所有文本
+      const range = document.createRange()
+      range.selectNodeContents(keyRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
     }
   })
 }
@@ -269,12 +286,14 @@ const editValue = () => {
   }
 
   nextTick(() => {
-    // 找到当前组件内的值输入框
-    const inputs = document.querySelectorAll('.json-node__value-input')
-    const input = inputs[inputs.length - 1] as HTMLInputElement // 使用最后一个，即刚创建的
-    if (input) {
-      input.focus()
-      input.select()
+    if (valueRef.value) {
+      valueRef.value.focus()
+      // 选中所有文本
+      const range = document.createRange()
+      range.selectNodeContents(valueRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
     }
   })
 }
@@ -283,7 +302,7 @@ const saveKeyEdit = () => {
   if (props.level === 0) return // 根节点不允许编辑 key
   if (!isEditingKey.value) return // 如果不在编辑状态，直接返回
 
-  const newKey = editingKeyValue.value.trim()
+  const newKey = keyRef.value?.innerText.trim() || ''
 
   // 检查新 key 是否有效
   if (!newKey) {
@@ -307,9 +326,11 @@ const saveKeyEdit = () => {
 }
 
 const saveValueEdit = () => {
+  if (!isEditingValue.value) return
+
   try {
     let newValue: any
-    const trimmed = editingValueValue.value.trim()
+    const trimmed = valueRef.value?.innerText.trim() || ''
 
     // 如果原始值是字符串类型，保持为字符串（除非用户明确修改）
     if (originalValueType.value === 'string') {
@@ -320,7 +341,7 @@ const saveValueEdit = () => {
         newValue = trimmed === 'true'
       } else {
         // 保持为字符串，即使内容看起来像数字
-        newValue = editingValueValue.value
+        newValue = trimmed
       }
     } else if (originalValueType.value === 'protected-number') {
       // 原本是受保护的大数字，继续保持这个格式
@@ -343,7 +364,7 @@ const saveValueEdit = () => {
         }
       } else {
         // 字符串值
-        newValue = editingValueValue.value
+        newValue = trimmed
       }
     }
 
@@ -406,6 +427,12 @@ defineOptions({
   padding: 1px 3px;
   border-radius: 3px;
   user-select: text;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 50%;
+  flex-shrink: 0;
+  text-align: left;
 }
 
 .json-node__key:hover {
@@ -459,56 +486,68 @@ defineOptions({
   background-color: v-bind('theme.colors.collapsedBackgroundHover');
 }
 
-.json-node__value {
+.json-node__value-wrapper {
   cursor: pointer;
   padding: 1px 3px;
   border-radius: 3px;
   user-select: text;
-  word-break: normal;
+  word-break: break-all;
   overflow-wrap: break-word;
   white-space: pre-wrap;
   max-width: 100%;
   display: inline-block;
   text-align: left;
+  vertical-align: top;
+  min-width: 0;
+  flex: 1;
 }
 
-.json-node__value:hover {
+.json-node__value-wrapper:hover {
   background-color: v-bind('theme.colors.hoverBackground');
 }
 
-.json-node__value--string {
+.json-node__value-wrapper.json-node__value--string {
   color: v-bind('theme.colors.syntaxString');
 }
 
-.json-node__value--number {
+.json-node__value-wrapper.json-node__value--number {
   color: v-bind('theme.colors.syntaxNumber');
 }
 
-.json-node__value--boolean {
+.json-node__value-wrapper.json-node__value--boolean {
   color: v-bind('theme.colors.syntaxBoolean');
   font-weight: 600;
 }
 
-.json-node__value--null {
+.json-node__value-wrapper.json-node__value--null {
   color: v-bind('theme.colors.syntaxNull');
   font-style: italic;
 }
 
-/* 编辑状态样式 */
-.json-node__key-input,
-.json-node__value-input {
-  border: 1px solid v-bind('theme.colors.syntaxNumber');
-  border-radius: 3px;
-  padding: 1px 3px;
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-  background: v-bind('theme.colors.background');
+.json-node__value {
   outline: none;
 }
 
-.json-node__key-input {
+/* 编辑状态样式 */
+.json-node__key[contenteditable="true"],
+.json-node__value[contenteditable="true"] {
+  border: 1px solid v-bind('theme.colors.syntaxNumber');
+  border-radius: 3px;
+  padding: 1px 3px;
+  background: v-bind('theme.colors.background');
+  outline: none;
+  cursor: text;
+  min-width: 10px;
+  display: inline-block;
+}
+
+.json-node__key[contenteditable="true"] {
   color: v-bind('theme.colors.syntaxKey');
+}
+
+.json-node__key[contenteditable="true"]::selection,
+.json-node__value[contenteditable="true"]::selection {
+  background-color: v-bind('theme.colors.selectionBackground');
 }
 
 /* 缩进指示线 */
