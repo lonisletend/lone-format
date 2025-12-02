@@ -802,6 +802,20 @@ const handleContextMenu = (event: MouseEvent) => {
 
 .xml-node__children {
   margin-left: 0;
+  position: relative;
+}
+
+/* 缩进对齐线 */
+.xml-node__children::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: v-bind('theme.colors.indentLine');
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .xml-node__text-content {
