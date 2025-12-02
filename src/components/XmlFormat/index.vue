@@ -86,6 +86,7 @@
           @update:attributeName="handleAttributeNameUpdate"
           @update:attributeValue="handleAttributeValueUpdate"
           @update:textContent="handleTextContentUpdate"
+          @update:cdataContent="handleCdataContentUpdate"
         />
       </div>
     </div>
@@ -532,6 +533,70 @@ const handleTextContentUpdate = (path: string, newContent: string) => {
     emit('update:modelValue', xmlString)
   } catch (error) {
     console.error('Failed to update text content:', error)
+  }
+}
+
+// 更新 CDATA 内容
+const handleCdataContentUpdate = (path: string, newContent: string) => {
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return
+  
+  try {
+    const pathParts = path.split(/\./).filter(Boolean)
+    let current: any = parsedXml.value
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i]
+      const match = part.match(/^(.+?)\[(\d+)\]$/)
+      
+      if (match) {
+        const tag = match[1]
+        const index = parseInt(match[2])
+        
+        if (i === pathParts.length - 1) {
+          // 最后一部分，更新 CDATA 内容
+          if (Array.isArray(current) && current[index]) {
+            const node = current[index]
+            // 找到标签名
+            const tagName = Object.keys(node).find(key => !key.startsWith(':') && !key.startsWith('#'))
+            
+            if (tagName && Array.isArray(node[tagName])) {
+              const children = node[tagName]
+              // 查找 CDATA 节点
+              const cdataNodeIndex = children.findIndex((child: any) => child['__cdata'] !== undefined)
+              
+              if (cdataNodeIndex !== -1) {
+                // 更新现有的 CDATA 节点
+                const cdataNode = children[cdataNodeIndex]
+                if (Array.isArray(cdataNode['__cdata']) && cdataNode['__cdata'][0]) {
+                  cdataNode['__cdata'][0]['#text'] = newContent
+                }
+              } else {
+                // 如果没有 CDATA 节点，创建一个
+                children.push({
+                  '__cdata': [{ '#text': newContent }]
+                })
+              }
+            }
+          }
+        } else {
+          // 继续向下导航
+          if (Array.isArray(current) && current[index]) {
+            current = current[index]
+          }
+        }
+      } else {
+        // 普通标签名，继续深入
+        if (current[part]) {
+          current = current[part]
+        }
+      }
+    }
+    
+    // 重新生成 XML 字符串并触发更新
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ' })
+    emit('update:modelValue', xmlString)
+  } catch (error) {
+    console.error('Failed to update CDATA content:', error)
   }
 }
 

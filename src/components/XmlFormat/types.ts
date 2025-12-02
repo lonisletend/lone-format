@@ -90,6 +90,9 @@ export interface ThemeConfig {
     // 折叠效果
     collapsedBackground: string // 折叠信息背景色
     collapsedText: string       // 折叠信息文本色
+
+    // 缩进指示线
+    indentLine: string          // 对齐线颜色
   }
 }
 

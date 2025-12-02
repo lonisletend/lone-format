@@ -58,7 +58,19 @@
           >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
           ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
-        ><span class="xml-node__cdata" :style="{ color: theme.colors.xmlCdata }">&lt;![CDATA[{{ cdataContent }}]]&gt;</span
+        ><span class="xml-node__cdata" :style="{ color: theme.colors.xmlCdata }">&lt;![CDATA[</span
+        ><span 
+          class="xml-node__cdata-content xml-node__cdata-content--editable"
+          :style="{ color: theme.colors.xmlCdata }"
+          :contenteditable="isEditingCdataContent"
+          @dblclick="editCdataContent"
+          @keydown.enter.prevent="saveCdataContentEdit"
+          @keydown.escape="cancelCdataContentEdit"
+          @blur="saveCdataContentEdit"
+          ref="cdataContentRef"
+          :title="'Double-click to edit CDATA content'"
+        >{{ isEditingCdataContent ? editingCdataContentValue : cdataContent }}</span
+        ><span class="xml-node__cdata" :style="{ color: theme.colors.xmlCdata }">]]&gt;</span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span
         ><span 
           class="xml-node__tag" 
@@ -325,6 +337,7 @@
             @update:attributeName="(path, oldAttr, newAttr) => $emit('update:attributeName', path, oldAttr, newAttr)"
             @update:attributeValue="(path, attr, newValue) => $emit('update:attributeValue', path, attr, newValue)"
             @update:textContent="(path, newContent) => $emit('update:textContent', path, newContent)"
+            @update:cdataContent="(path, newContent) => $emit('update:cdataContent', path, newContent)"
           />
         </div>
 
@@ -374,6 +387,7 @@ const emit = defineEmits<{
   'update:attributeName': [path: string, oldAttrName: string, newAttrName: string]
   'update:attributeValue': [path: string, attrName: string, newValue: string]
   'update:textContent': [path: string, newContent: string]
+  'update:cdataContent': [path: string, newContent: string]
 }>()
 
 // 编辑状态
@@ -381,17 +395,20 @@ const isEditingTagName = ref(false)
 const isEditingAttrName = ref<string | null>(null)
 const isEditingAttrValue = ref<string | null>(null)
 const isEditingTextContent = ref(false)
+const isEditingCdataContent = ref(false)
 
 const editingTagNameValue = ref('')
 const editingAttrNameValue = ref('')
 const editingAttrValueValue = ref('')
 const editingTextContentValue = ref('')
+const editingCdataContentValue = ref('')
 
 // 元素引用
 const tagNameRef = ref<HTMLElement | null>(null)
 const attrNameRef = ref<HTMLElement | null>(null)
 const attrValueRef = ref<HTMLElement | null>(null)
 const textContentRef = ref<HTMLElement | null>(null)
+const cdataContentRef = ref<HTMLElement | null>(null)
 
 // 获取节点的标签名
 const tagName = computed(() => {
@@ -666,6 +683,42 @@ const cancelTextContentEdit = () => {
   editingTextContentValue.value = textContent.value
 }
 
+// CDATA 编辑方法
+const editCdataContent = () => {
+  isEditingCdataContent.value = true
+  editingCdataContentValue.value = cdataContent.value
+  
+  nextTick(() => {
+    if (cdataContentRef.value) {
+      cdataContentRef.value.focus()
+      const range = document.createRange()
+      range.selectNodeContents(cdataContentRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+  })
+}
+
+const saveCdataContentEdit = () => {
+  if (!isEditingCdataContent.value) return
+  
+  const newContent = cdataContentRef.value?.innerText || ''
+  
+  if (newContent === cdataContent.value) {
+    isEditingCdataContent.value = false
+    return
+  }
+  
+  isEditingCdataContent.value = false
+  emit('update:cdataContent', currentPath.value, newContent)
+}
+
+const cancelCdataContentEdit = () => {
+  isEditingCdataContent.value = false
+  editingCdataContentValue.value = cdataContent.value
+}
+
 const handleContextMenu = (event: MouseEvent) => {
   if (hasChildren.value) {
     event.preventDefault()
@@ -749,6 +802,20 @@ const handleContextMenu = (event: MouseEvent) => {
 
 .xml-node__children {
   margin-left: 0;
+  position: relative;
+}
+
+/* 缩进对齐线 */
+.xml-node__children::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: v-bind('theme.colors.indentLine');
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .xml-node__text-content {
@@ -769,7 +836,8 @@ const handleContextMenu = (event: MouseEvent) => {
 .xml-node__tag--editable,
 .xml-node__attr-name--editable,
 .xml-node__attr-value--editable,
-.xml-node__text-content--editable {
+.xml-node__text-content--editable,
+.xml-node__cdata-content--editable {
   cursor: pointer;
   padding: 1px 3px;
   border-radius: 3px;
@@ -779,7 +847,8 @@ const handleContextMenu = (event: MouseEvent) => {
 .xml-node__tag--editable:hover,
 .xml-node__attr-name--editable:hover,
 .xml-node__attr-value--editable:hover,
-.xml-node__text-content--editable:hover {
+.xml-node__text-content--editable:hover,
+.xml-node__cdata-content--editable:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
@@ -787,7 +856,8 @@ const handleContextMenu = (event: MouseEvent) => {
 .xml-node__tag--editable[contenteditable="true"],
 .xml-node__attr-name--editable[contenteditable="true"],
 .xml-node__attr-value--editable[contenteditable="true"],
-.xml-node__text-content--editable[contenteditable="true"] {
+.xml-node__text-content--editable[contenteditable="true"],
+.xml-node__cdata-content--editable[contenteditable="true"] {
   border: 1px solid #0969da;
   border-radius: 3px;
   padding: 1px 3px;
@@ -801,7 +871,8 @@ const handleContextMenu = (event: MouseEvent) => {
 .xml-node__tag--editable[contenteditable="true"]::selection,
 .xml-node__attr-name--editable[contenteditable="true"]::selection,
 .xml-node__attr-value--editable[contenteditable="true"]::selection,
-.xml-node__text-content--editable[contenteditable="true"]::selection {
+.xml-node__text-content--editable[contenteditable="true"]::selection,
+.xml-node__cdata-content--editable[contenteditable="true"]::selection {
   background-color: rgba(9, 105, 218, 0.2);
 }
 </style>
