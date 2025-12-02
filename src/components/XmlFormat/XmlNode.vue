@@ -19,34 +19,112 @@
       <!-- 包含 CDATA 的元素，使用内联格式 -->
       <div v-if="hasCdata" class="xml-node__line"
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
-        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span 
+          class="xml-node__tag xml-node__tag--editable" 
+          :style="{ color: theme.colors.xmlTag }"
+          :contenteditable="isEditingTagName"
+          @dblclick="editTagName"
+          @contextmenu="handleContextMenu"
+          @keydown.enter.prevent="saveTagNameEdit"
+          @keydown.escape="cancelTagNameEdit"
+          @blur="saveTagNameEdit"
+          ref="tagNameRef"
+          :title="'Double-click to edit tag name'"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
         ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
-          ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+          ><span 
+            class="xml-node__attr-name xml-node__attr-name--editable" 
+            :style="{ color: theme.colors.xmlAttribute }"
+            :contenteditable="isEditingAttrName === attrName"
+            @dblclick="editAttrName(attrName)"
+            @keydown.enter.prevent="saveAttrNameEdit"
+            @keydown.escape="cancelAttrNameEdit"
+            @blur="saveAttrNameEdit"
+            :ref="el => { if (isEditingAttrName === attrName) attrNameRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute name'"
+          >{{ isEditingAttrName === attrName ? editingAttrNameValue : attrName }}</span
           ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
           ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
-          ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+          ><span 
+            class="xml-node__attr-value xml-node__attr-value--editable" 
+            :style="{ color: theme.colors.xmlAttributeValue }"
+            :contenteditable="isEditingAttrValue === attrName"
+            @dblclick="editAttrValue(attrName)"
+            @keydown.enter.prevent="saveAttrValueEdit"
+            @keydown.escape="cancelAttrValueEdit"
+            @blur="saveAttrValueEdit"
+            :ref="el => { if (isEditingAttrValue === attrName) attrValueRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute value'"
+          >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
           ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
         ><span class="xml-node__cdata" :style="{ color: theme.colors.xmlCdata }">&lt;![CDATA[{{ cdataContent }}]]&gt;</span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span
-        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span 
+          class="xml-node__tag" 
+          :style="{ color: theme.colors.xmlTag }"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
       </div>
       
       <!-- 只有文本内容的简单元素，使用内联格式 -->
       <div v-else-if="isSimpleTextElement" class="xml-node__line"
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
-        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span 
+          class="xml-node__tag xml-node__tag--editable" 
+          :style="{ color: theme.colors.xmlTag }"
+          :contenteditable="isEditingTagName"
+          @dblclick="editTagName"
+          @contextmenu="handleContextMenu"
+          @keydown.enter.prevent="saveTagNameEdit"
+          @keydown.escape="cancelTagNameEdit"
+          @blur="saveTagNameEdit"
+          ref="tagNameRef"
+          :title="'Double-click to edit tag name'"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
         ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
-          ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+          ><span 
+            class="xml-node__attr-name xml-node__attr-name--editable" 
+            :style="{ color: theme.colors.xmlAttribute }"
+            :contenteditable="isEditingAttrName === attrName"
+            @dblclick="editAttrName(attrName)"
+            @keydown.enter.prevent="saveAttrNameEdit"
+            @keydown.escape="cancelAttrNameEdit"
+            @blur="saveAttrNameEdit"
+            :ref="el => { if (isEditingAttrName === attrName) attrNameRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute name'"
+          >{{ isEditingAttrName === attrName ? editingAttrNameValue : attrName }}</span
           ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
           ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
-          ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+          ><span 
+            class="xml-node__attr-value xml-node__attr-value--editable" 
+            :style="{ color: theme.colors.xmlAttributeValue }"
+            :contenteditable="isEditingAttrValue === attrName"
+            @dblclick="editAttrValue(attrName)"
+            @keydown.enter.prevent="saveAttrValueEdit"
+            @keydown.escape="cancelAttrValueEdit"
+            @blur="saveAttrValueEdit"
+            :ref="el => { if (isEditingAttrValue === attrName) attrValueRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute value'"
+          >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
           ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span
-        ><span class="xml-node__text-content" :style="{ color: theme.colors.xmlText }">{{ textContent }}</span
+        ><span 
+          class="xml-node__text-content xml-node__text-content--editable" 
+          :style="{ color: theme.colors.xmlText }"
+          :contenteditable="isEditingTextContent"
+          @dblclick="editTextContent"
+          @keydown.enter.prevent="saveTextContentEdit"
+          @keydown.escape="cancelTextContentEdit"
+          @blur="saveTextContentEdit"
+          ref="textContentRef"
+          :title="'Double-click to edit text content'"
+        >{{ isEditingTextContent ? editingTextContentValue : textContent }}</span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span
-        ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+        ><span 
+          class="xml-node__tag" 
+          :style="{ color: theme.colors.xmlTag }"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
       </div>
       
@@ -60,14 +138,45 @@
             @click="toggleCollapse()"
             :title="'Click to expand'"
             ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
-            ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+            ><span 
+              class="xml-node__tag xml-node__tag--editable" 
+              :style="{ color: theme.colors.xmlTag }"
+              :contenteditable="isEditingTagName"
+              @dblclick.stop="editTagName"
+              @contextmenu="handleContextMenu"
+              @keydown.enter.prevent="saveTagNameEdit"
+              @keydown.escape="cancelTagNameEdit"
+              @blur="saveTagNameEdit"
+              ref="tagNameRef"
+              :title="'Double-click or right-click to edit tag name'"
+            >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
           ></span>
           <!-- 属性列表 -->
           <span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
-            ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+            ><span 
+              class="xml-node__attr-name xml-node__attr-name--editable" 
+              :style="{ color: theme.colors.xmlAttribute }"
+              :contenteditable="isEditingAttrName === attrName"
+              @dblclick="editAttrName(attrName)"
+              @keydown.enter.prevent="saveAttrNameEdit"
+              @keydown.escape="cancelAttrNameEdit"
+              @blur="saveAttrNameEdit"
+              :ref="el => { if (isEditingAttrName === attrName) attrNameRef = el as HTMLElement }"
+              :title="'Double-click to edit attribute name'"
+            >{{ isEditingAttrName === attrName ? editingAttrNameValue : attrName }}</span
             ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
             ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
-            ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+            ><span 
+              class="xml-node__attr-value xml-node__attr-value--editable" 
+              :style="{ color: theme.colors.xmlAttributeValue }"
+              :contenteditable="isEditingAttrValue === attrName"
+              @dblclick="editAttrValue(attrName)"
+              @keydown.enter.prevent="saveAttrValueEdit"
+              @keydown.escape="cancelAttrValueEdit"
+              @blur="saveAttrValueEdit"
+              :ref="el => { if (isEditingAttrValue === attrName) attrValueRef = el as HTMLElement }"
+              :title="'Double-click to edit attribute value'"
+            >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
             ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
           ></span>
           <!-- 右括号 - 可点击展开 -->
@@ -94,7 +203,10 @@
             :title="'Click to expand'"
           >
             <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span>
-            <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
+            <span 
+              class="xml-node__tag" 
+              :style="{ color: theme.colors.xmlTag }"
+            >{{ isEditingTagName ? editingTagNameValue : tagName }}</span>
             <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
           </span>
         </div>
@@ -110,19 +222,60 @@
             @click="toggleCollapse()"
             :title="isExpanded ? 'Click to collapse' : 'Click to expand'"
             ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
-            ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+            ><span 
+              class="xml-node__tag xml-node__tag--editable" 
+              :style="{ color: theme.colors.xmlTag }"
+              :contenteditable="isEditingTagName"
+              @dblclick.stop="editTagName"
+              @contextmenu="handleContextMenu"
+              @keydown.enter.prevent="saveTagNameEdit"
+              @keydown.escape="cancelTagNameEdit"
+              @blur="saveTagNameEdit"
+              ref="tagNameRef"
+              :title="'Double-click or right-click to edit tag name'"
+            >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
           ></span>
           <!-- 无子节点时，不可点击 -->
           <span v-else
             ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
-            ><span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span
+            ><span 
+              class="xml-node__tag xml-node__tag--editable" 
+              :style="{ color: theme.colors.xmlTag }"
+              :contenteditable="isEditingTagName"
+              @dblclick="editTagName"
+              @keydown.enter.prevent="saveTagNameEdit"
+              @keydown.escape="cancelTagNameEdit"
+              @blur="saveTagNameEdit"
+              ref="tagNameRef"
+              :title="'Double-click to edit tag name'"
+            >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
           ></span>
           <!-- 属性列表：不可点击 -->
           <span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
-            ><span class="xml-node__attr-name" :style="{ color: theme.colors.xmlAttribute }">{{ attrName }}</span
+            ><span 
+              class="xml-node__attr-name xml-node__attr-name--editable" 
+              :style="{ color: theme.colors.xmlAttribute }"
+              :contenteditable="isEditingAttrName === attrName"
+              @dblclick="editAttrName(attrName)"
+              @keydown.enter.prevent="saveAttrNameEdit"
+              @keydown.escape="cancelAttrNameEdit"
+              @blur="saveAttrNameEdit"
+              :ref="el => { if (isEditingAttrName === attrName) attrNameRef = el as HTMLElement }"
+              :title="'Double-click to edit attribute name'"
+            >{{ isEditingAttrName === attrName ? editingAttrNameValue : attrName }}</span
             ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
             ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
-            ><span class="xml-node__attr-value" :style="{ color: theme.colors.xmlAttributeValue }">{{ attrValue }}</span
+            ><span 
+              class="xml-node__attr-value xml-node__attr-value--editable" 
+              :style="{ color: theme.colors.xmlAttributeValue }"
+              :contenteditable="isEditingAttrValue === attrName"
+              @dblclick="editAttrValue(attrName)"
+              @keydown.enter.prevent="saveAttrValueEdit"
+              @keydown.escape="cancelAttrValueEdit"
+              @blur="saveAttrValueEdit"
+              :ref="el => { if (isEditingAttrValue === attrName) attrValueRef = el as HTMLElement }"
+              :title="'Double-click to edit attribute value'"
+            >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
             ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
           ></span>
           <!-- 可点击的部分：右括号 -->
@@ -141,8 +294,18 @@
         <div v-if="isExpanded && hasChildren" class="xml-node__children">
           <!-- 文本内容（如果只有文本，无子元素） -->
           <div v-if="children.length === 0 && textContent.trim()" class="xml-node__text">
-            <span class="xml-node__text-content" :style="{ color: theme.colors.xmlText }">
-              {{ textContent }}
+            <span 
+              class="xml-node__text-content xml-node__text-content--editable" 
+              :style="{ color: theme.colors.xmlText }"
+              :contenteditable="isEditingTextContent"
+              @dblclick="editTextContent"
+              @keydown.enter.prevent="saveTextContentEdit"
+              @keydown.escape="cancelTextContentEdit"
+              @blur="saveTextContentEdit"
+              ref="textContentRef"
+              :title="'Double-click to edit text content'"
+            >
+              {{ isEditingTextContent ? editingTextContentValue : textContent }}
             </span>
           </div>
           
@@ -158,6 +321,10 @@
             :theme="theme"
             @toggle-expand="(path) => $emit('toggle-expand', path)"
             @copy="(value) => $emit('copy', value)"
+            @update:tagName="(path, oldTag, newTag) => $emit('update:tagName', path, oldTag, newTag)"
+            @update:attributeName="(path, oldAttr, newAttr) => $emit('update:attributeName', path, oldAttr, newAttr)"
+            @update:attributeValue="(path, attr, newValue) => $emit('update:attributeValue', path, attr, newValue)"
+            @update:textContent="(path, newContent) => $emit('update:textContent', path, newContent)"
           />
         </div>
 
@@ -169,7 +336,10 @@
             title="Click to collapse"
           >
             <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;/</span>
-            <span class="xml-node__tag" :style="{ color: theme.colors.xmlTag }">{{ tagName }}</span>
+            <span 
+              class="xml-node__tag" 
+              :style="{ color: theme.colors.xmlTag }"
+            >{{ isEditingTagName ? editingTagNameValue : tagName }}</span>
             <span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
           </span>
         </div>
@@ -180,7 +350,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import type { ThemeConfig } from './types'
 
 interface Props {
@@ -200,7 +370,28 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'toggle-expand': [path: string]
   'copy': [value: any]
+  'update:tagName': [path: string, oldTag: string, newTag: string]
+  'update:attributeName': [path: string, oldAttrName: string, newAttrName: string]
+  'update:attributeValue': [path: string, attrName: string, newValue: string]
+  'update:textContent': [path: string, newContent: string]
 }>()
+
+// 编辑状态
+const isEditingTagName = ref(false)
+const isEditingAttrName = ref<string | null>(null)
+const isEditingAttrValue = ref<string | null>(null)
+const isEditingTextContent = ref(false)
+
+const editingTagNameValue = ref('')
+const editingAttrNameValue = ref('')
+const editingAttrValueValue = ref('')
+const editingTextContentValue = ref('')
+
+// 元素引用
+const tagNameRef = ref<HTMLElement | null>(null)
+const attrNameRef = ref<HTMLElement | null>(null)
+const attrValueRef = ref<HTMLElement | null>(null)
+const textContentRef = ref<HTMLElement | null>(null)
 
 // 获取节点的标签名
 const tagName = computed(() => {
@@ -213,7 +404,7 @@ const tagName = computed(() => {
 const currentPath = computed(() => {
   if (!tagName.value) return ''
   return props.parentPath 
-    ? `${props.parentPath}[${props.index}]` 
+    ? `${props.parentPath}.${tagName.value}[${props.index}]` 
     : `${tagName.value}[${props.index}]`
 })
 
@@ -333,6 +524,155 @@ const childPath = (): string => {
   return `${currentPath.value}.${tagName.value}`
 }
 
+// 编辑功能方法
+const editTagName = () => {
+  isEditingTagName.value = true
+  editingTagNameValue.value = tagName.value
+  
+  nextTick(() => {
+    if (tagNameRef.value) {
+      tagNameRef.value.focus()
+      const range = document.createRange()
+      range.selectNodeContents(tagNameRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+  })
+}
+
+const editAttrName = (attrName: string) => {
+  isEditingAttrName.value = attrName
+  editingAttrNameValue.value = attrName
+  
+  nextTick(() => {
+    if (attrNameRef.value) {
+      attrNameRef.value.focus()
+      const range = document.createRange()
+      range.selectNodeContents(attrNameRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+  })
+}
+
+const editAttrValue = (attrName: string) => {
+  isEditingAttrValue.value = attrName
+  editingAttrValueValue.value = attributes.value[attrName] || ''
+  
+  nextTick(() => {
+    if (attrValueRef.value) {
+      attrValueRef.value.focus()
+      const range = document.createRange()
+      range.selectNodeContents(attrValueRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+  })
+}
+
+const editTextContent = () => {
+  isEditingTextContent.value = true
+  editingTextContentValue.value = textContent.value
+  
+  nextTick(() => {
+    if (textContentRef.value) {
+      textContentRef.value.focus()
+      const range = document.createRange()
+      range.selectNodeContents(textContentRef.value)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+  })
+}
+
+const saveTagNameEdit = () => {
+  if (!isEditingTagName.value) return
+  
+  const newTag = tagNameRef.value?.innerText.trim() || ''
+  
+  if (!newTag || newTag === tagName.value) {
+    isEditingTagName.value = false
+    return
+  }
+  
+  isEditingTagName.value = false
+  emit('update:tagName', currentPath.value, tagName.value, newTag)
+}
+
+const saveAttrNameEdit = () => {
+  if (!isEditingAttrName.value) return
+  
+  const oldAttrName = isEditingAttrName.value
+  const newAttrName = attrNameRef.value?.innerText.trim() || ''
+  
+  if (!newAttrName || newAttrName === oldAttrName) {
+    isEditingAttrName.value = null
+    return
+  }
+  
+  isEditingAttrName.value = null
+  emit('update:attributeName', currentPath.value, oldAttrName, newAttrName)
+}
+
+const saveAttrValueEdit = () => {
+  if (!isEditingAttrValue.value) return
+  
+  const attrName = isEditingAttrValue.value
+  const newValue = attrValueRef.value?.innerText.trim() || ''
+  
+  isEditingAttrValue.value = null
+  emit('update:attributeValue', currentPath.value, attrName, newValue)
+}
+
+const saveTextContentEdit = () => {
+  if (!isEditingTextContent.value) return
+  
+  const newContent = textContentRef.value?.innerText || ''
+  
+  if (newContent === textContent.value) {
+    isEditingTextContent.value = false
+    return
+  }
+  
+  isEditingTextContent.value = false
+  emit('update:textContent', currentPath.value, newContent)
+}
+
+const cancelTagNameEdit = () => {
+  isEditingTagName.value = false
+  editingTagNameValue.value = tagName.value
+}
+
+const cancelAttrNameEdit = () => {
+  if (isEditingAttrName.value) {
+    editingAttrNameValue.value = isEditingAttrName.value
+    isEditingAttrName.value = null
+  }
+}
+
+const cancelAttrValueEdit = () => {
+  if (isEditingAttrValue.value) {
+    editingAttrValueValue.value = attributes.value[isEditingAttrValue.value] || ''
+    isEditingAttrValue.value = null
+  }
+}
+
+const cancelTextContentEdit = () => {
+  isEditingTextContent.value = false
+  editingTextContentValue.value = textContent.value
+}
+
+const handleContextMenu = (event: MouseEvent) => {
+  if (hasChildren.value) {
+    event.preventDefault()
+    editTagName()
+  }
+}
+
 </script>
 
 <style scoped>
@@ -423,5 +763,45 @@ const childPath = (): string => {
 
 .xml-node__cdata {
   opacity: 0.9;
+}
+
+/* 编辑功能样式 */
+.xml-node__tag--editable,
+.xml-node__attr-name--editable,
+.xml-node__attr-value--editable,
+.xml-node__text-content--editable {
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 3px;
+  transition: background-color 0.15s ease;
+}
+
+.xml-node__tag--editable:hover,
+.xml-node__attr-name--editable:hover,
+.xml-node__attr-value--editable:hover,
+.xml-node__text-content--editable:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* 编辑状态样式 */
+.xml-node__tag--editable[contenteditable="true"],
+.xml-node__attr-name--editable[contenteditable="true"],
+.xml-node__attr-value--editable[contenteditable="true"],
+.xml-node__text-content--editable[contenteditable="true"] {
+  border: 1px solid #0969da;
+  border-radius: 3px;
+  padding: 1px 3px;
+  background: rgba(9, 105, 218, 0.05);
+  outline: none;
+  cursor: text;
+  min-width: 10px;
+  display: inline-block;
+}
+
+.xml-node__tag--editable[contenteditable="true"]::selection,
+.xml-node__attr-name--editable[contenteditable="true"]::selection,
+.xml-node__attr-value--editable[contenteditable="true"]::selection,
+.xml-node__text-content--editable[contenteditable="true"]::selection {
+  background-color: rgba(9, 105, 218, 0.2);
 }
 </style>

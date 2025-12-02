@@ -73,15 +73,19 @@
         
         <!-- XML 节点（遍历数组） -->
         <XmlNode
-          v-for="(node, index) in renderNodes"
-          :key="index"
-          :node="node"
-          :index="index"
+          v-for="(item, idx) in renderNodes"
+          :key="idx"
+          :node="item.node"
+          :index="item.originalIndex"
           :level="0"
           :expanded="expandedNodes"
           :theme="currentTheme"
           @toggle-expand="toggleExpand"
           @copy="copyValue"
+          @update:tagName="handleTagNameUpdate"
+          @update:attributeName="handleAttributeNameUpdate"
+          @update:attributeValue="handleAttributeValueUpdate"
+          @update:textContent="handleTextContentUpdate"
         />
       </div>
     </div>
@@ -142,8 +146,10 @@ const currentTheme = computed(() => getTheme(props.theme))
 const rootNodes = computed(() => {
   if (!parsedXml.value || !Array.isArray(parsedXml.value)) return []
   
-  // 过滤掉 XML 声明，返回其余节点
-  return parsedXml.value.filter(node => !node['?xml'])
+  // 过滤掉 XML 声明，但保留原始索引信息
+  return parsedXml.value
+    .map((node, index) => ({ node, originalIndex: index }))
+    .filter(item => !item.node['?xml'])
 })
 
 // XML 声明
@@ -222,7 +228,8 @@ const expandAll = () => {
       const tagName = Object.keys(item).find(key => !key.startsWith(':') && !key.startsWith('#'))
       if (!tagName) return
       
-      const nodePath = currentPath ? `${currentPath}[${index}]` : `${tagName}[${index}]`
+      // 路径格式: tagName[index] 或 parentPath.tagName[index]
+      const nodePath = currentPath ? `${currentPath}.${tagName}[${index}]` : `${tagName}[${index}]`
       allPaths.add(nodePath)
       
       // 递归处理子节点数组
@@ -233,11 +240,12 @@ const expandAll = () => {
     })
   }
   
-  // 从根节点开始收集
-  rootNodes.value.forEach((node, index) => {
+  // 从根节点开始收集 - 适配新的 { node, originalIndex } 结构
+  rootNodes.value.forEach(({ node, originalIndex }) => {
     const tagName = Object.keys(node).find(key => !key.startsWith(':') && !key.startsWith('#'))
     if (tagName) {
-      const path = `${tagName}[${index}]`
+      // 使用 originalIndex 而不是循环索引
+      const path = `${tagName}[${originalIndex}]`
       allPaths.add(path)
       
       const children = node[tagName]
@@ -315,6 +323,215 @@ const copyValue = async (value: any) => {
     const err = error instanceof Error ? error : new Error('Copy failed')
     emit('copy-error', err)
     console.error('Failed to copy value:', error)
+  }
+}
+
+// 更新标签名（同时更新开始和结束标签）
+const handleTagNameUpdate = (path: string, oldTag: string, newTag: string) => {
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return
+  
+  try {
+    // 路径格式: "library[0].library.book[0].book.title[0]"
+    // 需要导航到 parsedXml.value -> [0] (library节点) -> library -> [0] (book节点) -> book -> [0] (title节点)
+    const pathParts = path.split(/\./).filter(Boolean)
+    let current: any = parsedXml.value
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i]
+      const match = part.match(/^(.+?)\[(\d+)\]$/)
+      
+      if (match) {
+        const tag = match[1]
+        const index = parseInt(match[2])
+        
+        if (i === pathParts.length - 1) {
+          // 最后一部分，进行更新
+          if (Array.isArray(current) && current[index]) {
+            const node = current[index]
+            // 如果节点有旧标签，重命名它
+            if (node[oldTag]) {
+              const content = node[oldTag]
+              delete node[oldTag]
+              node[newTag] = content
+            }
+          }
+        } else {
+          // 继续向下导航
+          if (Array.isArray(current) && current[index]) {
+            current = current[index]
+          }
+        }
+      } else {
+        // 普通标签名，继续深入
+        if (current[part]) {
+          current = current[part]
+        }
+      }
+    }
+    
+    // 重新生成 XML 字符串并触发更新
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ' })
+    emit('update:modelValue', xmlString)
+  } catch (error) {
+    console.error('Failed to update tag name:', error)
+  }
+}
+
+// 更新属性名
+const handleAttributeNameUpdate = (path: string, oldAttrName: string, newAttrName: string) => {
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return
+  
+  try {
+    const pathParts = path.split(/\./).filter(Boolean)
+    let current: any = parsedXml.value
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i]
+      const match = part.match(/^(.+?)\[(\d+)\]$/)
+      
+      if (match) {
+        const tag = match[1]
+        const index = parseInt(match[2])
+        
+        if (i === pathParts.length - 1) {
+          // 最后一部分，更新属性
+          if (Array.isArray(current) && current[index]) {
+            const node = current[index]
+            const attrs = node[':@']
+            
+            if (attrs && attrs[`@_${oldAttrName}`] !== undefined) {
+              const value = attrs[`@_${oldAttrName}`]
+              delete attrs[`@_${oldAttrName}`]
+              attrs[`@_${newAttrName}`] = value
+            }
+          }
+        } else {
+          // 继续向下导航
+          if (Array.isArray(current) && current[index]) {
+            current = current[index]
+          }
+        }
+      } else {
+        // 普通标签名，继续深入
+        if (current[part]) {
+          current = current[part]
+        }
+      }
+    }
+    
+    // 重新生成 XML 字符串并触发更新
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ' })
+    emit('update:modelValue', xmlString)
+  } catch (error) {
+    console.error('Failed to update attribute name:', error)
+  }
+}
+
+// 更新属性值
+const handleAttributeValueUpdate = (path: string, attrName: string, newValue: string) => {
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return
+  
+  try {
+    const pathParts = path.split(/\./).filter(Boolean)
+    let current: any = parsedXml.value
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i]
+      const match = part.match(/^(.+?)\[(\d+)\]$/)
+      
+      if (match) {
+        const tag = match[1]
+        const index = parseInt(match[2])
+        
+        if (i === pathParts.length - 1) {
+          // 最后一部分，更新属性值
+          // 直接使用索引访问，不需要过滤
+          if (Array.isArray(current) && current[index]) {
+            const node = current[index]
+            const attrs = node[':@']
+            
+            if (attrs && attrs[`@_${attrName}`] !== undefined) {
+              attrs[`@_${attrName}`] = newValue
+            }
+          }
+        } else {
+          // 继续向下导航 - 直接使用索引
+          if (Array.isArray(current) && current[index]) {
+            current = current[index]
+          }
+        }
+      } else {
+        // 普通标签名，继续深入
+        if (current[part]) {
+          current = current[part]
+        }
+      }
+    }
+    
+    // 重新生成 XML 字符串并触发更新
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ' })
+    emit('update:modelValue', xmlString)
+  } catch (error) {
+    console.error('Failed to update attribute value:', error)
+  }
+}
+
+// 更新文本内容
+const handleTextContentUpdate = (path: string, newContent: string) => {
+  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return
+  
+  try {
+    const pathParts = path.split(/\./).filter(Boolean)
+    let current: any = parsedXml.value
+    let tagName = ''
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i]
+      const match = part.match(/^(.+?)\[(\d+)\]$/)
+      
+      if (match) {
+        const tag = match[1]
+        const index = parseInt(match[2])
+        
+        if (i === pathParts.length - 1) {
+          // 最后一部分，更新文本内容
+          if (Array.isArray(current) && current[index]) {
+            const node = current[index]
+            // 找到标签名
+            tagName = Object.keys(node).find(key => !key.startsWith(':') && !key.startsWith('#')) || ''
+            
+            if (tagName && Array.isArray(node[tagName])) {
+              const children = node[tagName]
+              // 查找或创建文本节点
+              const textNodeIndex = children.findIndex((child: any) => child['#text'] !== undefined)
+              
+              if (textNodeIndex !== -1) {
+                children[textNodeIndex]['#text'] = newContent
+              } else {
+                // 如果没有文本节点，创建一个
+                children.push({ '#text': newContent })
+              }
+            }
+          }
+        } else {
+          // 继续向下导航
+          if (Array.isArray(current) && current[index]) {
+            current = current[index]
+          }
+        }
+      } else {
+        // 普通标签名，继续深入
+        if (current[part]) {
+          current = current[part]
+        }
+      }
+    }
+    
+    // 重新生成 XML 字筦串并触发更新
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ' })
+    emit('update:modelValue', xmlString)
+  } catch (error) {
+    console.error('Failed to update text content:', error)
   }
 }
 
