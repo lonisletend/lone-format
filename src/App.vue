@@ -170,26 +170,7 @@ const clearFilter = () => {
 }
 
 const loadFilterSampleData = () => {
-  const sampleData = {
-    "users": [
-      { "id": 1, "name": "Alice", "age": 25, "department": "Engineering", "active": true },
-      { "id": 2, "name": "Bob", "age": 30, "department": "Marketing", "active": false },
-      { "id": 3, "name": "Charlie", "age": 35, "department": "Engineering", "active": true },
-      { "id": 4, "name": "Diana", "age": 28, "department": "Sales", "active": true }
-    ],
-    "departments": {
-      "Engineering": { "budget": 100000, "headCount": 15 },
-      "Marketing": { "budget": 50000, "headCount": 8 },
-      "Sales": { "budget": 75000, "headCount": 12 }
-    },
-    "company": {
-      "name": "Tech Corp",
-      "founded": 2010,
-      "revenue": 5000000
-    }
-  }
-
-  filterTestJson.value = JSON.stringify(sampleData, null, 2)
+  filterTestJson.value = '{"users":[{"id":1,"name":"Alice","age":25,"department":"Engineering","active":true},{"id":2,"name":"Bob","age":30,"department":"Marketing","active":false},{"id":3,"name":"Charlie","age":35,"department":"Engineering","active":true},{"id":4,"name":"Diana","age":28,"department":"Sales","active":true}],"departments":{"Engineering":{"budget":100000,"headCount":15},"Marketing":{"budget":50000,"headCount":8},"Sales":{"budget":75000,"headCount":12}},"company":{"name":"Tech Corp","founded":2010,"revenue":5000000},"vals":[{"val":1.000},{"val":2.400},{"val":6.34500}],"valArray":[1.000,2.400,6.34500],"bigVals":[{"val":123456789012345678901234567890},{"val":123456789012345678901234567895},{"val":123456789012345678901234567898}]}';
   showMessage('已加载示例数据', 'success')
 }
 
@@ -197,7 +178,7 @@ const getFilterPlaceholder = () => {
   if (filterType.value === 'jsonpath') {
     return '例如: $.users[*].name 或 $.departments.Engineering'
   } else if (filterType.value === 'js') {
-    return '例如: data.users.filter(u => u.age > 30) 或 data.company.name'
+    return '例如: $.users.filter(u => u.age > 30) 或 $.company.name'
   }
   return '选择过滤类型后输入表达式'
 }
@@ -533,10 +514,10 @@ const activeTab = ref('interactive')
                 <div class="example-item">
                   <strong>JavaScript Examples:</strong>
                   <ul>
-                    <li><code>data.users.filter(u => u.active)</code> - Active users</li>
-                    <li><code>data.company.name</code> - Company name</li>
-                    <li><code>data.users.map(u => u.name)</code> - User names array</li>
-                    <li><code>data.users.length</code> - Number of users</li>
+                    <li><code>$.users.filter(u => u.active)</code> - Active users</li>
+                    <li><code>$.company.name</code> - Company name</li>
+                    <li><code>$.users.map(u => u.name)</code> - User names array</li>
+                    <li><code>$.users.length</code> - Number of users</li>
                   </ul>
                 </div>
               </div>
