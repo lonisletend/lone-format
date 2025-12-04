@@ -252,8 +252,11 @@ const applyFilter = (config: FilterConfig) => {
       }
     } else if (config.type === 'js') {
       // 使用 JavaScript 表达式过滤
-      // 创建一个安全的执行环境
-      const func = new Function('data', `
+      // 策略：创建增强的代理数据，保留索引信息以便后续重建原始格式
+      const { proxyData, indexMap } = createProxyWithIndexMap(parsedJson.value)
+      
+      // 创建一个安全的执行环境，使用 $ 指代数据（与 JSONPath 保持一致）
+      const func = new Function('$', `
         try {
           return ${config.expression};
         } catch (error) {
@@ -261,7 +264,11 @@ const applyFilter = (config: FilterConfig) => {
         }
       `)
 
-      result = func(parsedJson.value)
+      // 在代理数据上执行过滤
+      const proxyResult = func(proxyData)
+      
+      // 根据索引映射，从原始数据中重建结果，保持保护对象
+      result = rebuildWithOriginalData(parsedJson.value, proxyResult, indexMap)
       filteredJson.value = result
     } else {
       throw new Error(`Unsupported filter type: ${config.type}`)
@@ -277,6 +284,130 @@ const applyFilter = (config: FilterConfig) => {
     filterError.value = error instanceof Error ? error.message : 'Filter execution error'
     filteredJson.value = null
   }
+}
+
+// 创建带索引映射的代理数据
+const createProxyWithIndexMap = (data: any, path: string = 'root'): { proxyData: any, indexMap: Map<any, string> } => {
+  const indexMap = new Map<any, string>()
+
+  const createProxy = (value: any, currentPath: string): any => {
+    if (value === null || value === undefined) {
+      return value
+    }
+
+    // 检查是否是被保护的数字对象
+    if (typeof value === 'object' && value.__protected_number__ !== undefined) {
+      const numValue = parseFloat(value.__protected_number__)
+      indexMap.set(numValue, currentPath)
+      return numValue
+    }
+
+    // 递归处理数组
+    if (Array.isArray(value)) {
+      const proxyArray = value.map((item, index) => {
+        const itemPath = `${currentPath}[${index}]`
+        const proxyItem = createProxy(item, itemPath)
+        // 为数组项建立映射
+        indexMap.set(proxyItem, itemPath)
+        return proxyItem
+      })
+      indexMap.set(proxyArray, currentPath)
+      return proxyArray
+    }
+
+    // 递归处理对象
+    if (typeof value === 'object') {
+      const proxyObj: any = {}
+      for (const key in value) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          const keyPath = currentPath === 'root' ? key : `${currentPath}.${key}`
+          proxyObj[key] = createProxy(value[key], keyPath)
+        }
+      }
+      indexMap.set(proxyObj, currentPath)
+      return proxyObj
+    }
+
+    // 其他类型直接返回
+    return value
+  }
+
+  const proxyData = createProxy(data, path)
+  return { proxyData, indexMap }
+}
+
+// 根据索引映射重建原始数据结构
+const rebuildWithOriginalData = (originalData: any, proxyResult: any, indexMap: Map<any, string>): any => {
+  // 简单类型直接返回
+  if (proxyResult === null || typeof proxyResult !== 'object') {
+    return proxyResult
+  }
+
+  // 如果是数组结果（最常见的过滤场景）
+  if (Array.isArray(proxyResult)) {
+    return proxyResult.map(proxyItem => {
+      // 尝试从索引映射中找到路径
+      const path = indexMap.get(proxyItem)
+      if (path) {
+        // 从原始数据中提取对应路径的值
+        const originalValue = getValueByPath(originalData, path)
+        if (originalValue !== undefined) {
+          return originalValue
+        }
+      }
+      // 如果找不到映射，递归重建
+      return rebuildWithOriginalData(originalData, proxyItem, indexMap)
+    })
+  }
+
+  // 如果是对象结果
+  const path = indexMap.get(proxyResult)
+  if (path) {
+    const originalValue = getValueByPath(originalData, path)
+    if (originalValue !== undefined) {
+      return originalValue
+    }
+  }
+
+  // 递归处理对象的每个属性
+  const result: any = {}
+  for (const key in proxyResult) {
+    if (Object.prototype.hasOwnProperty.call(proxyResult, key)) {
+      result[key] = rebuildWithOriginalData(originalData, proxyResult[key], indexMap)
+    }
+  }
+  return result
+}
+
+// 根据路径获取值
+const getValueByPath = (data: any, path: string): any => {
+  if (path === 'root') return data
+
+  // 解析路径，支持 root.users[0].name 或 users[0].name 格式
+  const segments: Array<string | number> = []
+  let current = path.replace(/^root\.?/, '') // 移除开头的 root.
+
+  // 解析路径段
+  const regex = /([^\[\].]+)|\[(\d+)\]/g
+  let match
+  while ((match = regex.exec(current)) !== null) {
+    if (match[1]) {
+      segments.push(match[1])
+    } else if (match[2] !== undefined) {
+      segments.push(parseInt(match[2]))
+    }
+  }
+
+  // 遍历路径
+  let result = data
+  for (const segment of segments) {
+    if (result === null || result === undefined) {
+      return undefined
+    }
+    result = result[segment]
+  }
+
+  return result
 }
 
 // 清除过滤器
