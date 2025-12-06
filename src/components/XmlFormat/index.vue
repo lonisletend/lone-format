@@ -58,10 +58,16 @@
     </div>
 
     <div class="xml-format__content">
-      <!-- 错误信息 -->
+      <!-- 解析错误信息 -->
       <div v-if="!isValidXml" class="xml-format__error">
         <h4>XML Parse Error:</h4>
         <pre>{{ parseError }}</pre>
+      </div>
+
+      <!-- 过滤错误信息 -->
+      <div v-else-if="filterError" class="xml-format__error">
+        <h4>Filter Error:</h4>
+        <pre>{{ filterError }}</pre>
       </div>
 
       <!-- XML 树形展示 -->
@@ -95,8 +101,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import xpath from 'xpath'
+// @ts-ignore
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import XmlNode from './XmlNode.vue'
-import type { ThemeType, ParsedXml } from './types'
+import type { ThemeType, ParsedXml, FilterConfig } from './types'
 import { getTheme } from './themes'
 import { validateXml, parseXml, buildXml, compressXml, formatXml, buildXmlFromArray } from './parser'
 
@@ -136,29 +145,42 @@ const emit = defineEmits<{
 const parsedXml = ref<ParsedXml | null>(null)
 const parseError = ref<string>('')
 const expandedNodes = ref<Set<string>>(new Set())
+const filteredXml = ref<ParsedXml | null>(null)
+const filterError = ref<string>('')
+const originalXmlString = ref<string>('') // 保存原始 XML 字符串用于 XPath 查询
 
 // 计算属性
 const isValidXml = computed(() => parseError.value === '')
+
+// 当前显示的 XML 数据（可能是过滤后的）
+const displayXml = computed(() => {
+  if (filterError.value) {
+    return null
+  }
+  return filteredXml.value !== null ? filteredXml.value : parsedXml.value
+})
 
 // 当前主题
 const currentTheme = computed(() => getTheme(props.theme))
 
 // 根节点（preserveOrder: true 返回数组）
 const rootNodes = computed(() => {
-  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return []
+  const data = displayXml.value
+  if (!data || !Array.isArray(data)) return []
   
   // 过滤掉 XML 声明，但保留原始索引信息
-  return parsedXml.value
+  return data
     .map((node, index) => ({ node, originalIndex: index }))
     .filter(item => !item.node['?xml'])
 })
 
 // XML 声明
 const xmlDeclaration = computed(() => {
-  if (!parsedXml.value || !Array.isArray(parsedXml.value)) return null
+  const data = displayXml.value
+  if (!data || !Array.isArray(data)) return null
   
   // 查找 XML 声明节点
-  const declarationNode = parsedXml.value.find(node => node['?xml'])
+  const declarationNode = data.find(node => node['?xml'])
   if (!declarationNode || !declarationNode[':@']) return null
   
   const attrs = declarationNode[':@']
@@ -181,6 +203,9 @@ const parseXmlString = (xmlString: string) => {
     // 输入为空时，清空所有状态，不显示错误
     parseError.value = ''
     parsedXml.value = null
+    originalXmlString.value = ''
+    filteredXml.value = null
+    filterError.value = ''
     return
   }
 
@@ -190,12 +215,20 @@ const parseXmlString = (xmlString: string) => {
     if (!validation.valid) {
       parseError.value = validation.error || 'Invalid XML'
       parsedXml.value = null
+      originalXmlString.value = ''
       return
     }
+
+    // 保存原始 XML 字符串用于 XPath 查询
+    originalXmlString.value = xmlString
 
     // 解析
     parsedXml.value = parseXml(xmlString)
     parseError.value = ''
+
+    // 清除之前的过滤结果
+    filteredXml.value = null
+    filterError.value = ''
 
     // 默认展开所有节点
     nextTick(() => {
@@ -204,6 +237,9 @@ const parseXmlString = (xmlString: string) => {
   } catch (error) {
     parseError.value = error instanceof Error ? error.message : 'Unknown parse error'
     parsedXml.value = null
+    originalXmlString.value = ''
+    filteredXml.value = null
+    filterError.value = ''
   }
 }
 
@@ -312,6 +348,80 @@ const formatSource = () => {
   } catch (error) {
     console.error('Failed to format XML:', error)
   }
+}
+
+// 应用过滤器（仅支持 XPath）
+const applyFilter = (config: FilterConfig) => {
+  if (!config || !config.expression.trim()) {
+    clearFilter()
+    return
+  }
+
+  if (!parsedXml.value || !originalXmlString.value) {
+    filterError.value = 'No valid XML data to filter'
+    return
+  }
+
+  try {
+    // 使用 XPath 过滤
+    // 解析 XML 为 DOM
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(originalXmlString.value, 'text/xml')
+
+    // 执行 XPath 查询
+    const nodes = xpath.select(config.expression, xmlDoc)
+
+    if (!nodes || (Array.isArray(nodes) && nodes.length === 0)) {
+      filteredXml.value = []
+      filterError.value = ''
+      return
+    }
+
+    // 将 XPath 结果转换为 XML 字符串
+    const serializer = new XMLSerializer()
+    let resultXml = ''
+
+    if (Array.isArray(nodes)) {
+      // 多个节点，包装在根节点中
+      resultXml = '<result>\n'
+      nodes.forEach((node: any) => {
+        if (node.nodeType === 1) { // Element node
+          resultXml += '  ' + serializer.serializeToString(node) + '\n'
+        } else if (node.nodeType === 2) { // Attribute node
+          resultXml += `  <attribute name="${node.name}" value="${node.value}"/>\n`
+        } else if (node.nodeType === 3) { // Text node
+          resultXml += `  <text>${node.nodeValue}</text>\n`
+        }
+      })
+      resultXml += '</result>'
+    } else {
+      // 单个节点
+      resultXml = serializer.serializeToString(nodes)
+    }
+
+    // 重新解析为内部格式
+    filteredXml.value = parseXml(resultXml)
+    filterError.value = ''
+
+    // 重新展开所有节点
+    nextTick(() => {
+      expandAll()
+    })
+  } catch (error) {
+    filterError.value = error instanceof Error ? error.message : 'Filter execution error'
+    filteredXml.value = null
+  }
+}
+
+// 清除过滤器
+const clearFilter = () => {
+  filteredXml.value = null
+  filterError.value = ''
+  
+  // 清除过滤后，恢复展开状态
+  nextTick(() => {
+    expandAll()
+  })
 }
 
 // 复制值
@@ -615,11 +725,17 @@ defineExpose({
   collapseAll,
   toggleExpand,
 
+  // 过滤相关方法
+  filter: applyFilter,
+  clearFilter,
+
   // 状态访问方法
   isValidXml: () => isValidXml.value,
   getParsedXml: () => parsedXml.value,
+  getFilteredXml: () => filteredXml.value,
   getExpandedNodes: () => expandedNodes.value,
   getParseError: () => parseError.value,
+  getFilterError: () => filterError.value,
 
   // 工具方法
   parseXmlString: (xmlString: string) => parseXmlString(xmlString),

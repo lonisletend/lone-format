@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
 import XmlFormat from './components/XmlFormat/index.vue'
 import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
+import type { XmlFormatExposed, FilterType } from './components/XmlFormat/types'
 
 
 // JsonFormat 组件引用
@@ -10,6 +11,9 @@ const jsonFormatRef = ref<JsonFormatExposed>()
 const customJsonFormatRef = ref<JsonFormatExposed>()
 const complexJsonFormatRef = ref<JsonFormatExposed>()
 const filterTestRef = ref<JsonFormatExposed>()
+
+// XmlFormat 组件引用
+const xmlFilterTestRef = ref<XmlFormatExposed>()
 
 // XML Format 测试数据
 const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
@@ -185,6 +189,102 @@ const getFilterPlaceholder = () => {
 
 // 初始化过滤器测试数据
 loadFilterSampleData()
+
+// XML Filter 测试相关
+const xmlFilterType = ref<FilterType | ''>('')
+const xmlFilterExpression = ref('')
+const xmlFilterTestData = ref(`<?xml version="1.0" encoding="UTF-8"?>
+<library name="Tech Books Library">
+  <book id="1" category="programming">
+    <title lang="en">Learning TypeScript</title>
+    <author>Josh Goldberg</author>
+    <year>2022</year>
+    <price currency="USD">39.99</price>
+    <tags>
+      <tag>TypeScript</tag>
+      <tag>JavaScript</tag>
+      <tag>Web Development</tag>
+    </tags>
+  </book>
+  <book id="2" category="web">
+    <title lang="en">Vue.js 3 Cookbook</title>
+    <author>Heitor Ramon Ribeiro</author>
+    <year>2023</year>
+    <price currency="USD">44.99</price>
+    <tags>
+      <tag>Vue.js</tag>
+      <tag>Frontend</tag>
+      <tag>JavaScript</tag>
+    </tags>
+  </book>
+  <book id="3" category="programming">
+    <title lang="zh">深入理解计算机系统</title>
+    <author>Randal E. Bryant</author>
+    <year>2015</year>
+    <price currency="USD">89.99</price>
+    <tags>
+      <tag>Computer Science</tag>
+      <tag>Systems</tag>
+    </tags>
+  </book>
+  <book id="4" category="database">
+    <title lang="en">Database System Concepts</title>
+    <author>Abraham Silberschatz</author>
+    <year>2019</year>
+    <price currency="USD">79.99</price>
+    <tags>
+      <tag>Database</tag>
+      <tag>SQL</tag>
+    </tags>
+  </book>
+</library>`)
+
+const applyXmlFilter = () => {
+  if (xmlFilterType.value && xmlFilterExpression.value.trim()) {
+    const config = {
+      type: xmlFilterType.value as FilterType,
+      expression: xmlFilterExpression.value.trim()
+    }
+
+    xmlFilterTestRef.value?.filter(config)
+    showMessage(`已应用 ${xmlFilterType.value} 过滤器`, 'info')
+  } else {
+    showMessage('请选择过滤类型并输入表达式', 'error')
+  }
+}
+
+const clearXmlFilter = () => {
+  xmlFilterType.value = ''
+  xmlFilterExpression.value = ''
+  xmlFilterTestRef.value?.clearFilter()
+  showMessage('已清除 XML 过滤器', 'info')
+}
+
+const getXmlFilterPlaceholder = () => {
+  if (xmlFilterType.value === 'xpath') {
+    return '例如: //book[@category="programming"] 或 //book/title'
+  }
+  return '选择过滤类型后输入表达式'
+}
+
+const loadXmlFilterExample = (example: string) => {
+  const examples: Record<string, { type: FilterType; expression: string }> = {
+    'all-books': { type: 'xpath', expression: '//book' },
+    'programming-books': { type: 'xpath', expression: '//book[@category="programming"]' },
+    'book-titles': { type: 'xpath', expression: '//book/title' },
+    'year-filter': { type: 'xpath', expression: '//book[year>2020]' },
+    'first-book': { type: 'xpath', expression: '//book[1]' },
+    'authors': { type: 'xpath', expression: '//author' },
+    'library-name': { type: 'xpath', expression: '/library/@name' }
+  }
+
+  const selected = examples[example]
+  if (selected) {
+    xmlFilterType.value = selected.type
+    xmlFilterExpression.value = selected.expression
+    showMessage(`已加载示例: ${example}`, 'success')
+  }
+}
 
 // JsonFormat 示例数据 - 大型 JSON 测试性能
 const sampleJson = ref(`{
@@ -395,6 +495,9 @@ const activeTab = ref('interactive')
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-interactive' }]" @click="activeTab = 'xml-interactive'">
             🚀 XML Interactive
           </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-filter' }]" @click="activeTab = 'xml-filter'">
+            🔍 XML Filter
+          </button>
         </div>
 
         <!-- Tab 内容 -->
@@ -403,9 +506,9 @@ const activeTab = ref('interactive')
           <div v-show="activeTab === 'basic'" class="component-item">
             <h3>Sample JSON with Large Numbers</h3>
             <p class="description">
-              This example shows JSON formatting with large numbers (handled by json-bigint),
-              nested objects, arrays, and different data types. Click on brackets to expand/collapse,
-              and click on values to edit them.
+              This example shows JSON formatting with large numbers, nested objects, arrays, 
+              and different data types. Click on brackets to expand/collapse, and click on 
+              values to edit them.
             </p>
             <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
           </div>
@@ -687,6 +790,74 @@ const activeTab = ref('interactive')
                   <XmlFormat v-model="interactiveXml" />
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- XML Filter Test Tab -->
+          <div v-show="activeTab === 'xml-filter'" class="component-item">
+            <h3>🔍 XML XPath 过滤测试</h3>
+            <p class="description">
+              测试 XML 组件的 XPath 过滤功能。
+              使用 XPath 表达式对 XML 数据进行查询和过滤。
+            </p>
+
+            <!-- 过滤控制面板 -->
+            <div class="filter-controls">
+              <div class="filter-row">
+                <label for="xml-filter-type">过滤类型:</label>
+                <select id="xml-filter-type" v-model="xmlFilterType" class="filter-select">
+                  <option value="">不过滤</option>
+                  <option value="xpath">XPath</option>
+                </select>
+              </div>
+
+              <div class="filter-row">
+                <label for="xml-filter-expr">过滤表达式:</label>
+                <input id="xml-filter-expr" v-model="xmlFilterExpression" type="text" class="filter-input"
+                  :placeholder="getXmlFilterPlaceholder()" @keyup.enter="applyXmlFilter" />
+              </div>
+
+              <div class="filter-actions">
+                <button class="filter-btn filter-btn--primary" @click="applyXmlFilter">
+                  ✓ 应用过滤
+                </button>
+                <button class="filter-btn filter-btn--secondary" @click="clearXmlFilter">
+                  ✗ 清除过滤
+                </button>
+              </div>
+            </div>
+
+            <!-- XPath 示例 -->
+            <div class="filter-examples">
+              <h4>XPath 示例:</h4>
+              <div class="example-buttons">
+                <button class="example-btn" @click="loadXmlFilterExample('all-books')">
+                  所有书籍: //book
+                </button>
+                <button class="example-btn" @click="loadXmlFilterExample('programming-books')">
+                  编程类书籍: //book[@category="programming"]
+                </button>
+                <button class="example-btn" @click="loadXmlFilterExample('book-titles')">
+                  所有标题: //book/title
+                </button>
+                <button class="example-btn" @click="loadXmlFilterExample('year-filter')">
+                  2020年后: //book[year>2020]
+                </button>
+                <button class="example-btn" @click="loadXmlFilterExample('first-book')">
+                  第一本书: //book[1]
+                </button>
+                <button class="example-btn" @click="loadXmlFilterExample('authors')">
+                  所有作者: //author
+                </button>
+                <button class="example-btn" @click="loadXmlFilterExample('library-name')">
+                  图书馆名称: /library/@name
+                </button>
+              </div>
+            </div>
+
+            <!-- XML 格式化组件 -->
+            <div class="xml-filter-viewer">
+              <XmlFormat ref="xmlFilterTestRef" v-model="xmlFilterTestData" />
             </div>
           </div>
         </div>
@@ -1372,5 +1543,54 @@ const activeTab = ref('interactive')
   .control-actions {
     justify-content: center;
   }
+}
+
+/* XML Filter 样式 */
+.xml-filter-viewer {
+  margin-top: 20px;
+}
+
+.filter-examples {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.filter-examples h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.filter-examples h4:not(:first-child) {
+  margin-top: 16px;
+}
+
+.example-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.example-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #495057;
+}
+
+.example-btn:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.example-btn:active {
+  transform: translateY(1px);
 }
 </style>
