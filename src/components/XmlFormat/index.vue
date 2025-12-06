@@ -304,13 +304,17 @@ const collapseAll = () => {
 
 // 复制 XML
 const copyXml = async () => {
-  if (!isValidXml.value || !parsedXml.value) return
+  if (!isValidXml.value) return
 
   try {
+    // 使用 displayXml 以确保复制的是当前显示的数据（可能是过滤后的）
+    const dataToUse = displayXml.value || parsedXml.value
+    if (!dataToUse) return
+
     // 使用新的 buildXmlFromArray 处理 preserveOrder: true 的数组结构
-    const xmlString = Array.isArray(parsedXml.value)
-      ? buildXmlFromArray(parsedXml.value, { indent: '  ' })
-      : buildXml(parsedXml.value, { format: true, indentBy: '  ' })
+    const xmlString = Array.isArray(dataToUse)
+      ? buildXmlFromArray(dataToUse, { indent: '  ' })
+      : buildXml(dataToUse, { format: true, indentBy: '  ' })
 
     await navigator.clipboard.writeText(xmlString)
     emit('copy-success', xmlString)
