@@ -87,6 +87,11 @@ export interface JsonFormatExposed {
   filter: (config: FilterConfig) => void
   clearFilter: () => void
 
+  // Key 排序相关方法
+  sortKeys: () => void
+  clearSortKeys: () => void
+  isSorted: () => boolean
+
   // 状态访问方法
   isValidJson: () => boolean
   getParsedJson: () => any
