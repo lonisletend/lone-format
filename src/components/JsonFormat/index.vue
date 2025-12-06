@@ -88,6 +88,7 @@ const parseError = ref<string>('')
 const expandedNodes = ref<Set<string>>(new Set())
 const filteredJson = ref<any>(null)
 const filterError = ref<string>('')
+const isSorted = ref<boolean>(false) // key 排序状态
 
 // 计算属性
 const isValidJson = computed(() => parseError.value === '')
@@ -95,12 +96,48 @@ const isValidJson = computed(() => parseError.value === '')
 // 当前主题
 const currentTheme = computed(() => getTheme(props.theme))
 
-// 当前显示的 JSON 数据（可能是过滤后的）
+// 深度排序函数：递归地对所有对象的 key 进行排序
+const sortObjectKeys = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return obj
+  }
+
+  // 如果是数组，递归处理每个元素
+  if (Array.isArray(obj)) {
+    return obj.map(item => sortObjectKeys(item))
+  }
+
+  // 如果是对象，对 key 排序并递归处理值
+  if (typeof obj === 'object') {
+    const sorted: any = {}
+    const keys = Object.keys(obj).sort()
+    
+    for (const key of keys) {
+      sorted[key] = sortObjectKeys(obj[key])
+    }
+    
+    return sorted
+  }
+
+  // 原始类型直接返回
+  return obj
+}
+
+// 排序后的 JSON 数据（不修改原始数据）
+const sortedJson = computed(() => {
+  const baseData = filteredJson.value !== null ? filteredJson.value : parsedJson.value
+  if (!baseData || !isSorted.value) {
+    return baseData
+  }
+  return sortObjectKeys(baseData)
+})
+
+// 当前显示的 JSON 数据（可能是过滤后的或排序后的）
 const displayJson = computed(() => {
   if (filterError.value) {
     return null
   }
-  return filteredJson.value !== null ? filteredJson.value : parsedJson.value
+  return sortedJson.value
 })
 
 // 解析 JSON 字符串
@@ -414,6 +451,16 @@ const getValueByPath = (data: any, path: string): any => {
 const clearFilter = () => {
   filteredJson.value = null
   filterError.value = ''
+}
+
+// 启用 key 排序
+const sortKeys = () => {
+  isSorted.value = true
+}
+
+// 清除 key 排序
+const clearSortKeys = () => {
+  isSorted.value = false
 }
 
 // 监听 props 变化
@@ -787,6 +834,11 @@ defineExpose({
   // Filter 相关方法
   filter: applyFilter,
   clearFilter,
+
+  // Key 排序相关方法
+  sortKeys,
+  clearSortKeys,
+  isSorted: () => isSorted.value,
 
   // 状态访问方法
   isValidJson: () => isValidJson.value,

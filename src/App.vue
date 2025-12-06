@@ -93,6 +93,7 @@ const getThemeDisplayName = (theme: ThemeType): string => {
 const filterType = ref<'jsonpath' | 'js' | ''>('')
 const filterExpression = ref('')
 const filterTestJson = ref('')
+const isSortKeysEnabled = ref(false)
 
 // 操作反馈消息
 const message = ref('')
@@ -185,6 +186,19 @@ const getFilterPlaceholder = () => {
     return '例如: $.users.filter(u => u.age > 30) 或 $.company.name'
   }
   return '选择过滤类型后输入表达式'
+}
+
+// Key 排序相关操作
+const toggleSortKeys = () => {
+  if (isSortKeysEnabled.value) {
+    filterTestRef.value?.clearSortKeys()
+    isSortKeysEnabled.value = false
+    showMessage('已清除 Key 排序', 'info')
+  } else {
+    filterTestRef.value?.sortKeys()
+    isSortKeysEnabled.value = true
+    showMessage('已启用 Key 排序（按字母顺序）', 'success')
+  }
 }
 
 // 初始化过滤器测试数据
@@ -598,6 +612,9 @@ const activeTab = ref('interactive')
                 <button @click="loadFilterSampleData" class="custom-btn custom-btn--secondary">
                   📝 Load Sample Data
                 </button>
+                <button @click="toggleSortKeys" class="custom-btn custom-btn--secondary">
+                  {{ isSortKeysEnabled ? '🔤 Clear Sort' : '🔤 Sort Keys' }}
+                </button>
               </div>
             </div>
 
@@ -623,6 +640,10 @@ const activeTab = ref('interactive')
                     <li><code>$.users.length</code> - Number of users</li>
                   </ul>
                 </div>
+              </div>
+              <div class="example-note">
+                <strong>💡 Key Sorting:</strong> Click the "Sort Keys" button to sort all object keys alphabetically. 
+                This feature works with both original and filtered data, and doesn't modify the source JSON.
               </div>
             </div>
 
@@ -1521,6 +1542,21 @@ const activeTab = ref('interactive')
   font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
   font-size: 13px;
   color: #d63384;
+}
+
+.example-note {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.example-note strong {
+  color: #664d03;
 }
 
 /* 移动端 Filter 响应式 */
