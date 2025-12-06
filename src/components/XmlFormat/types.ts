@@ -9,9 +9,9 @@ export type XmlNodeType = 'element' | 'text' | 'comment' | 'cdata' | 'declaratio
 export type ThemeType = 'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'
 
 /**
- * 过滤器类型枚举
+ * 过滤器类型枚举（仅支持 XPath）
  */
-export type FilterType = 'xpath' | 'css-selector' | 'js'
+export type FilterType = 'xpath'
 
 /**
  * XML 节点接口
@@ -143,11 +143,17 @@ export interface XmlFormatExposed {
   collapseAll: () => void
   toggleExpand: (path: string) => void
 
+  // 过滤相关方法
+  filter: (config: FilterConfig) => void
+  clearFilter: () => void
+
   // 状态访问方法
   isValidXml: () => boolean
   getParsedXml: () => ParsedXml | null
+  getFilteredXml: () => ParsedXml | null
   getExpandedNodes: () => Set<string>
   getParseError: () => string
+  getFilterError: () => string
 
   // 工具方法
   parseXmlString: (xmlString: string) => void
