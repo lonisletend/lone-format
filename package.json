@@ -16,6 +16,14 @@
       "types": "./dist/components/JsonFormat/index.d.ts",
       "import": "./dist/components/JsonFormat/index.js"
     },
+    "./xml-format": {
+      "types": "./dist/components/XmlFormat/index.d.ts",
+      "import": "./dist/components/XmlFormat/index.js"
+    },
+    "./sql-format": {
+      "types": "./dist/components/SqlFormat/index.d.ts",
+      "import": "./dist/components/SqlFormat/index.js"
+    },
     "./lone-format.css": "./dist/lone-format.css"
   },
   "files": [
@@ -40,6 +48,7 @@
     "@xmldom/xmldom": "^0.8.11",
     "fast-xml-parser": "^5.3.0",
     "jsonpath-plus": "^10.3.0",
+    "sql-formatter": "^15.6.10",
     "xpath": "^0.0.34"
   },
   "peerDependencies": {
