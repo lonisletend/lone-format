@@ -20,7 +20,7 @@ const defaultParserOptions = {
   parseAttributeValue: false,     // 不解析属性值（保持字符串）
   trimValues: false,              // 不去除首尾空白（保留原始空白字符）
   parseTagValue: false,           // 不解析标签值（保持字符串）
-  processEntities: true,          // 处理实体
+  processEntities: false,         // 不处理实体（保留原始实体引用）
   htmlEntities: false,            // 不是 HTML 实体
   ignoreNameSpace: false,         // 保留命名空间
   allowBooleanAttributes: true,   // 允许布尔属性
@@ -44,22 +44,88 @@ const defaultBuilderOptions = {
 }
 
 /**
+ * 验证实体引用
+ * 检查 XML 中的实体引用是否合法
+ * 合法的预定义实体引用：&lt; &gt; &amp; &quot; &apos;
+ * 数字字符引用：&#数字; 或 &#x十六进制;
+ */
+const validateEntityReferences = (xmlString: string): { valid: boolean; error?: string } => {
+  // 匹配所有实体引用：&xxx;
+  const entityPattern = /&([a-zA-Z0-9#]+);/g
+  const validPredefinedEntities = ['lt', 'gt', 'amp', 'quot', 'apos']
+  
+  let match
+  let lineNumber = 1
+  let lastIndex = 0
+  
+  while ((match = entityPattern.exec(xmlString)) !== null) {
+    const entityName = match[1]
+    const entityPosition = match.index
+    
+    // 计算行号
+    const textBeforeEntity = xmlString.substring(lastIndex, entityPosition)
+    lineNumber += (textBeforeEntity.match(/\n/g) || []).length
+    lastIndex = entityPosition
+    
+    // 检查是否为数字字符引用 &#数字; 或 &#x十六进制;
+    if (entityName.startsWith('#')) {
+      const numPart = entityName.substring(1)
+      // 十六进制格式 &#xHEX;
+      if (numPart.startsWith('x') || numPart.startsWith('X')) {
+        const hexValue = numPart.substring(1)
+        if (!/^[0-9a-fA-F]+$/.test(hexValue)) {
+          return {
+            valid: false,
+            error: `Line ${lineNumber}: Invalid hexadecimal character reference '&${entityName};'`
+          }
+        }
+      }
+      // 十进制格式 &#数字;
+      else if (!/^[0-9]+$/.test(numPart)) {
+        return {
+          valid: false,
+          error: `Line ${lineNumber}: Invalid numeric character reference '&${entityName};'`
+        }
+      }
+      continue
+    }
+    
+    // 检查是否为预定义实体引用（区分大小写）
+    if (!validPredefinedEntities.includes(entityName)) {
+      return {
+        valid: false,
+        error: `Line ${lineNumber}: Invalid entity reference '&${entityName};'. Valid predefined entities are: &lt; &gt; &amp; &quot; &apos;`
+      }
+    }
+  }
+  
+  return { valid: true }
+}
+
+/**
  * 验证 XML 字符串
  */
 export const validateXml = (xmlString: string): { valid: boolean; error?: string } => {
   try {
+    // 先进行基本的 XML 语法验证
     const result = XMLValidator.validate(xmlString, {
       allowBooleanAttributes: true,
     })
 
-    if (result === true) {
-      return { valid: true }
-    } else {
+    if (result !== true) {
       return {
         valid: false,
         error: `Line ${result.err.line}: ${result.err.msg}`,
       }
     }
+    
+    // 再验证实体引用的合法性
+    const entityValidation = validateEntityReferences(xmlString)
+    if (!entityValidation.valid) {
+      return entityValidation
+    }
+
+    return { valid: true }
   } catch (error) {
     return {
       valid: false,
