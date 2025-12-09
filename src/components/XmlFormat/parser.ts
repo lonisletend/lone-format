@@ -18,9 +18,9 @@ const defaultParserOptions = {
   cdataPropName: '__cdata',       // CDATA 属性名
   preserveOrder: true,            // 保留顺序（使用数组结构以保留注释位置）
   parseAttributeValue: false,     // 不解析属性值（保持字符串）
-  trimValues: true,               // 去除首尾空白
+  trimValues: false,              // 不去除首尾空白（保留原始空白字符）
   parseTagValue: false,           // 不解析标签值（保持字符串）
-  processEntities: true,          // 处理实体
+  processEntities: false,         // 不处理实体（保留原始实体引用）
   htmlEntities: false,            // 不是 HTML 实体
   ignoreNameSpace: false,         // 保留命名空间
   allowBooleanAttributes: true,   // 允许布尔属性
@@ -44,22 +44,88 @@ const defaultBuilderOptions = {
 }
 
 /**
+ * 验证实体引用
+ * 检查 XML 中的实体引用是否合法
+ * 合法的预定义实体引用：&lt; &gt; &amp; &quot; &apos;
+ * 数字字符引用：&#数字; 或 &#x十六进制;
+ */
+const validateEntityReferences = (xmlString: string): { valid: boolean; error?: string } => {
+  // 匹配所有实体引用：&xxx;
+  const entityPattern = /&([a-zA-Z0-9#]+);/g
+  const validPredefinedEntities = ['lt', 'gt', 'amp', 'quot', 'apos']
+  
+  let match
+  let lineNumber = 1
+  let lastIndex = 0
+  
+  while ((match = entityPattern.exec(xmlString)) !== null) {
+    const entityName = match[1]
+    const entityPosition = match.index
+    
+    // 计算行号
+    const textBeforeEntity = xmlString.substring(lastIndex, entityPosition)
+    lineNumber += (textBeforeEntity.match(/\n/g) || []).length
+    lastIndex = entityPosition
+    
+    // 检查是否为数字字符引用 &#数字; 或 &#x十六进制;
+    if (entityName.startsWith('#')) {
+      const numPart = entityName.substring(1)
+      // 十六进制格式 &#xHEX;
+      if (numPart.startsWith('x') || numPart.startsWith('X')) {
+        const hexValue = numPart.substring(1)
+        if (!/^[0-9a-fA-F]+$/.test(hexValue)) {
+          return {
+            valid: false,
+            error: `Line ${lineNumber}: Invalid hexadecimal character reference '&${entityName};'`
+          }
+        }
+      }
+      // 十进制格式 &#数字;
+      else if (!/^[0-9]+$/.test(numPart)) {
+        return {
+          valid: false,
+          error: `Line ${lineNumber}: Invalid numeric character reference '&${entityName};'`
+        }
+      }
+      continue
+    }
+    
+    // 检查是否为预定义实体引用（区分大小写）
+    if (!validPredefinedEntities.includes(entityName)) {
+      return {
+        valid: false,
+        error: `Line ${lineNumber}: Invalid entity reference '&${entityName};'. Valid predefined entities are: &lt; &gt; &amp; &quot; &apos;`
+      }
+    }
+  }
+  
+  return { valid: true }
+}
+
+/**
  * 验证 XML 字符串
  */
 export const validateXml = (xmlString: string): { valid: boolean; error?: string } => {
   try {
+    // 先进行基本的 XML 语法验证
     const result = XMLValidator.validate(xmlString, {
       allowBooleanAttributes: true,
     })
 
-    if (result === true) {
-      return { valid: true }
-    } else {
+    if (result !== true) {
       return {
         valid: false,
         error: `Line ${result.err.line}: ${result.err.msg}`,
       }
     }
+    
+    // 再验证实体引用的合法性
+    const entityValidation = validateEntityReferences(xmlString)
+    if (!entityValidation.valid) {
+      return entityValidation
+    }
+
+    return { valid: true }
   } catch (error) {
     return {
       valid: false,
@@ -121,10 +187,10 @@ export const buildXml = (
 /**
  * 压缩 XML（移除格式化）
  */
-export const compressXml = (obj: ParsedXml): string => {
+export const compressXml = (obj: ParsedXml, originalXml?: string): string => {
   // 处理 preserveOrder: true 的数组结构
   if (Array.isArray(obj)) {
-    return buildXmlFromArray(obj, { format: false })
+    return buildXmlFromArray(obj, { format: false, originalXml })
   }
   return buildXml(obj, { format: false, showDeclaration: false })
 }
@@ -140,7 +206,8 @@ export const formatXml = (
   // 处理 preserveOrder: true 的数组结构
   if (Array.isArray(parsed)) {
     return buildXmlFromArray(parsed, { 
-      indent: options?.indentBy || '  '
+      indent: options?.indentBy || '  ',
+      originalXml: xmlString
     })
   }
   return buildXml(parsed, options)
@@ -228,17 +295,37 @@ export const isEmptyNode = (node: any): boolean => {
 }
 
 /**
+ * 提取原始 XML 中的自闭合标签信息
+ */
+export const extractSelfClosingTags = (xmlString: string): Set<string> => {
+  const selfClosingTags = new Set<string>()
+  // 匹配自闭合标签：<tagName ... />
+  const selfClosingRegex = /<([a-zA-Z0-9_-]+)(?:\s[^>]*)?\s*\/>/g
+  let match
+  while ((match = selfClosingRegex.exec(xmlString)) !== null) {
+    selfClosingTags.add(match[1])
+  }
+  return selfClosingTags
+}
+
+/**
  * 从 preserveOrder 数组结构构建格式化的 XML 字符串
  */
 export const buildXmlFromArray = (
   data: any[],
-  options: { indent?: string; level?: number; format?: boolean } = {}
+  options: { indent?: string; level?: number; format?: boolean; selfClosingTags?: Set<string>; originalXml?: string } = {}
 ): string => {
   const indent = options.indent !== undefined ? options.indent : '  '
   const level = options.level || 0
   const format = options.format !== false // 默认格式化
   const currentIndent = format ? indent.repeat(level) : ''
   const lineBreak = format ? '\n' : ''
+  
+  // 如果是顶层调用且提供了原始XML，提取自闭合标签信息
+  let selfClosingTags = options.selfClosingTags
+  if (!selfClosingTags && options.originalXml && level === 0) {
+    selfClosingTags = extractSelfClosingTags(options.originalXml)
+  }
   
   let result = ''
   
@@ -285,13 +372,23 @@ export const buildXmlFromArray = (
     
     // 检查是否有子元素
     if (!Array.isArray(children) || children.length === 0) {
-      result += `${currentIndent}<${tagName}${attrsPart}/>${lineBreak}`
+      // 空元素：根据原始格式决定使用自闭合还是配对标签
+      const isSelfClosing = selfClosingTags && selfClosingTags.has(tagName)
+      if (isSelfClosing) {
+        result += `${currentIndent}<${tagName}${attrsPart}/>${lineBreak}`
+      } else {
+        result += `${currentIndent}<${tagName}${attrsPart}></${tagName}>${lineBreak}`
+      }
       continue
     }
     
-    // 检查是否为简单文本节点
+    // 检查是否为简单文本节点（包括只有空白的节点）
     const hasOnlyText = children.length === 1 && children[0]['#text'] !== undefined
+    const textContent = hasOnlyText ? children[0]['#text'] : ''
     const hasCdata = children.some((child: any) => child['__cdata'])
+    
+    // 如果文本内容为空字符串（不是只有空格），使用开始和结束标签
+    const isEmptyTextNode = hasOnlyText && textContent === ''
     
     if (hasCdata) {
       // 处理 CDATA
@@ -300,14 +397,16 @@ export const buildXmlFromArray = (
         const cdataContent = cdataChild['__cdata'][0]['#text'] || ''
         result += `${currentIndent}<${tagName}${attrsPart}><![CDATA[${cdataContent}]]></${tagName}>${lineBreak}`
       }
+    } else if (isEmptyTextNode) {
+      // 空文本节点 - 使用开始和结束标签（保留原格式）
+      result += `${currentIndent}<${tagName}${attrsPart}></${tagName}>${lineBreak}`
     } else if (hasOnlyText) {
-      // 简单文本节点 - 单行显示
-      const text = children[0]['#text']
-      result += `${currentIndent}<${tagName}${attrsPart}>${text}</${tagName}>${lineBreak}`
+      // 简单文本节点（包括只有空白的节点）- 单行显示，保留原始文本
+      result += `${currentIndent}<${tagName}${attrsPart}>${textContent}</${tagName}>${lineBreak}`
     } else {
       // 有子元素 - 多行显示
       result += `${currentIndent}<${tagName}${attrsPart}>${lineBreak}`
-      result += buildXmlFromArray(children, { indent, level: level + 1, format })
+      result += buildXmlFromArray(children, { indent, level: level + 1, format, selfClosingTags })
       result += `${currentIndent}</${tagName}>${lineBreak}`
     }
   }

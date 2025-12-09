@@ -140,6 +140,99 @@
         ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
       </div>
       
+      <!-- 空元素 - 自闭合格式 -->
+      <div v-else-if="isEmptyElement && isSelfClosing" class="xml-node__line"
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+        ><span 
+          class="xml-node__tag xml-node__tag--editable" 
+          :style="{ color: theme.colors.xmlTag }"
+          :contenteditable="isEditingTagName"
+          @dblclick="editTagName"
+          @contextmenu="handleContextMenu"
+          @keydown.enter.prevent="saveTagNameEdit"
+          @keydown.escape="cancelTagNameEdit"
+          @blur="saveTagNameEdit"
+          ref="tagNameRef"
+          :title="'Double-click to edit tag name'"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
+        ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
+          ><span 
+            class="xml-node__attr-name xml-node__attr-name--editable" 
+            :style="{ color: theme.colors.xmlAttribute }"
+            :contenteditable="isEditingAttrName === attrName"
+            @dblclick="editAttrName(attrName)"
+            @keydown.enter.prevent="saveAttrNameEdit"
+            @keydown.escape="cancelAttrNameEdit"
+            @blur="saveAttrNameEdit"
+            :ref="el => { if (isEditingAttrName === attrName) attrNameRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute name'"
+          >{{ isEditingAttrName === attrName ? editingAttrNameValue : attrName }}</span
+          ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+          ><span 
+            class="xml-node__attr-value xml-node__attr-value--editable" 
+            :style="{ color: theme.colors.xmlAttributeValue }"
+            :contenteditable="isEditingAttrValue === attrName"
+            @dblclick="editAttrValue(attrName)"
+            @keydown.enter.prevent="saveAttrValueEdit"
+            @keydown.escape="cancelAttrValueEdit"
+            @blur="saveAttrValueEdit"
+            :ref="el => { if (isEditingAttrValue === attrName) attrValueRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute value'"
+          >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }"> /&gt;</span>
+      </div>
+      
+      <!-- 空元素 - 配对标签格式 -->
+      <div v-else-if="isEmptyElement" class="xml-node__line"
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&lt;</span
+        ><span 
+          class="xml-node__tag xml-node__tag--editable" 
+          :style="{ color: theme.colors.xmlTag }"
+          :contenteditable="isEditingTagName"
+          @dblclick="editTagName"
+          @contextmenu="handleContextMenu"
+          @keydown.enter.prevent="saveTagNameEdit"
+          @keydown.escape="cancelTagNameEdit"
+          @blur="saveTagNameEdit"
+          ref="tagNameRef"
+          :title="'Double-click to edit tag name'"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
+        ><span v-for="(attrValue, attrName) in attributes" :key="attrName" class="xml-node__attribute"
+          ><span 
+            class="xml-node__attr-name xml-node__attr-name--editable" 
+            :style="{ color: theme.colors.xmlAttribute }"
+            :contenteditable="isEditingAttrName === attrName"
+            @dblclick="editAttrName(attrName)"
+            @keydown.enter.prevent="saveAttrNameEdit"
+            @keydown.escape="cancelAttrNameEdit"
+            @blur="saveAttrNameEdit"
+            :ref="el => { if (isEditingAttrName === attrName) attrNameRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute name'"
+          >{{ isEditingAttrName === attrName ? editingAttrNameValue : attrName }}</span
+          ><span class="xml-node__equals" :style="{ color: theme.colors.xmlEquals }">=</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span
+          ><span 
+            class="xml-node__attr-value xml-node__attr-value--editable" 
+            :style="{ color: theme.colors.xmlAttributeValue }"
+            :contenteditable="isEditingAttrValue === attrName"
+            @dblclick="editAttrValue(attrName)"
+            @keydown.enter.prevent="saveAttrValueEdit"
+            @keydown.escape="cancelAttrValueEdit"
+            @blur="saveAttrValueEdit"
+            :ref="el => { if (isEditingAttrValue === attrName) attrValueRef = el as HTMLElement }"
+            :title="'Double-click to edit attribute value'"
+          >{{ isEditingAttrValue === attrName ? editingAttrValueValue : attrValue }}</span
+          ><span class="xml-node__quote" :style="{ color: theme.colors.xmlQuote }">"</span></span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;&lt;/</span
+        ><span 
+          class="xml-node__tag" 
+          :style="{ color: theme.colors.xmlTag }"
+        >{{ isEditingTagName ? editingTagNameValue : tagName }}</span
+        ><span class="xml-node__bracket" :style="{ color: theme.colors.xmlBracket }">&gt;</span>
+      </div>
+      
       <!-- 有子元素或可折叠的复杂元素 -->
       <div v-else>
         <!-- 折叠状态：显示完整的开始和结束标签 -->
@@ -331,6 +424,7 @@
             :parent-path="childPath()"
             :expanded="expanded"
             :theme="theme"
+            :selfClosingTags="selfClosingTags"
             @toggle-expand="(path) => $emit('toggle-expand', path)"
             @copy="(value) => $emit('copy', value)"
             @update:tagName="(path, oldTag, newTag) => $emit('update:tagName', path, oldTag, newTag)"
@@ -373,11 +467,13 @@ interface Props {
   parentPath?: string    // 父节点路径
   expanded: Set<string>
   theme: ThemeConfig
+  selfClosingTags?: Set<string>  // 自闭合标签集合
 }
 
 const props = withDefaults(defineProps<Props>(), {
   parentPath: '',
-  level: 0
+  level: 0,
+  selfClosingTags: () => new Set()
 })
 
 const emit = defineEmits<{
@@ -515,11 +611,24 @@ const collapsedChildrenCount = computed(() => {
   }).length
 })
 
-// 是否是简单文本元素
+// 是否是简单文本元素（包括只有空白的元素）
 const isSimpleTextElement = computed(() => {
   return nodeType.value === 'element' && 
          !hasChildren.value && 
-         textContent.value.trim() !== ''
+         textContent.value !== '' // 只要有内容就算（包括空白字符）
+})
+
+// 是否是空元素（没有任何内容）
+const isEmptyElement = computed(() => {
+  return nodeType.value === 'element' && 
+         !hasChildren.value && 
+         textContent.value === ''
+})
+
+// 是否是自闭合标签
+const isSelfClosing = computed(() => {
+  if (!isEmptyElement.value) return false
+  return props.selfClosingTags?.has(tagName.value) || false
 })
 
 // 切换展开/折叠

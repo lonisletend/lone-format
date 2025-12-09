@@ -1,6 +1,6 @@
 {
   "name": "lone-format",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "description": "A Vue 3 component library for formatting with tree-shaking support",
   "main": "./dist/lone-format.umd.cjs",
@@ -15,6 +15,14 @@
     "./json-format": {
       "types": "./dist/components/JsonFormat/index.d.ts",
       "import": "./dist/components/JsonFormat/index.js"
+    },
+    "./xml-format": {
+      "types": "./dist/components/XmlFormat/index.d.ts",
+      "import": "./dist/components/XmlFormat/index.js"
+    },
+    "./sql-format": {
+      "types": "./dist/components/SqlFormat/index.d.ts",
+      "import": "./dist/components/SqlFormat/index.js"
     },
     "./lone-format.css": "./dist/lone-format.css"
   },

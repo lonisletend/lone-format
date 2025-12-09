@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
 import XmlFormat from './components/XmlFormat/index.vue'
+import SqlFormat from './components/SqlFormat/index.vue'
 import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
 import type { XmlFormatExposed, FilterType } from './components/XmlFormat/types'
+import type { SqlFormatExposed, SqlDialect } from './components/SqlFormat/types'
 
 
 // JsonFormat 组件引用
@@ -14,6 +16,9 @@ const filterTestRef = ref<JsonFormatExposed>()
 
 // XmlFormat 组件引用
 const xmlFilterTestRef = ref<XmlFormatExposed>()
+
+// SqlFormat 组件引用
+const sqlFormatRef = ref<SqlFormatExposed>()
 
 // XML Format 测试数据
 const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
@@ -38,6 +43,25 @@ const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
 
 const xmlTheme = ref<ThemeType>('min-light')
 
+// SQL Format 测试数据
+const sqlExample = ref(`-- Sample SQL Query
+SELECT 
+  u.id,
+  u.username,
+  u.email,
+  COUNT(o.id) as order_count,
+  SUM(o.total_amount) as total_spent
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.created_at >= '2024-01-01'
+  AND u.status = 'active'
+GROUP BY u.id, u.username, u.email
+HAVING COUNT(o.id) > 0
+ORDER BY total_spent DESC
+LIMIT 10;`)
+
+const sqlTheme = ref<ThemeType>('github-light')
+const sqlDialect = ref<SqlDialect>('mysql')
 
 // 主题演示相关
 const themeDemo = ref(`{
@@ -300,6 +324,24 @@ const loadXmlFilterExample = (example: string) => {
   }
 }
 
+// SQL 示例加载函数
+const loadSqlExample = (example: string) => {
+  const examples: Record<string, string> = {
+    'select': `-- Simple SELECT query\nSELECT id, username, email, created_at\nFROM users\nWHERE status = 'active'\nORDER BY created_at DESC\nLIMIT 20;`,
+    'join': `-- JOIN query with multiple tables\nSELECT \n  u.id,\n  u.username,\n  u.email,\n  p.title as post_title,\n  p.created_at as post_date,\n  COUNT(c.id) as comment_count\nFROM users u\nINNER JOIN posts p ON u.id = p.user_id\nLEFT JOIN comments c ON p.id = c.post_id\nWHERE u.status = 'active'\n  AND p.published = true\nGROUP BY u.id, u.username, u.email, p.title, p.created_at\nHAVING COUNT(c.id) > 5\nORDER BY comment_count DESC;`,
+    'insert': `-- INSERT statement\nINSERT INTO users (username, email, password, status, created_at)\nVALUES \n  ('john_doe', 'john@example.com', 'hashed_password_123', 'active', NOW()),\n  ('jane_smith', 'jane@example.com', 'hashed_password_456', 'active', NOW()),\n  ('bob_wilson', 'bob@example.com', 'hashed_password_789', 'pending', NOW());`,
+    'update': `-- UPDATE statement with conditions\nUPDATE users\nSET \n  status = 'inactive',\n  updated_at = NOW(),\n  last_login = NULL\nWHERE \n  last_login < DATE_SUB(NOW(), INTERVAL 6 MONTH)\n  AND status = 'active';`,
+    'create': `-- CREATE TABLE statement\nCREATE TABLE IF NOT EXISTS orders (\n  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n  user_id BIGINT UNSIGNED NOT NULL,\n  order_number VARCHAR(50) NOT NULL,\n  total_amount DECIMAL(10, 2) NOT NULL,\n  status ENUM('pending', 'processing', 'completed', 'cancelled') DEFAULT 'pending',\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  PRIMARY KEY (id),\n  UNIQUE KEY uk_order_number (order_number),\n  KEY idx_user_id (user_id),\n  KEY idx_status (status),\n  KEY idx_created_at (created_at),\n  CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`,
+    'complex': `-- Complex query with subquery and window functions\nWITH user_stats AS (\n  SELECT \n    u.id,\n    u.username,\n    COUNT(DISTINCT o.id) as order_count,\n    SUM(o.total_amount) as total_spent,\n    AVG(o.total_amount) as avg_order_value,\n    ROW_NUMBER() OVER (ORDER BY SUM(o.total_amount) DESC) as spending_rank\n  FROM users u\n  LEFT JOIN orders o ON u.id = o.user_id\n  WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)\n  GROUP BY u.id, u.username\n)\nSELECT \n  us.*,\n  CASE \n    WHEN us.spending_rank <= 10 THEN 'VIP'\n    WHEN us.spending_rank <= 50 THEN 'Premium'\n    ELSE 'Regular'\n  END as customer_tier\nFROM user_stats us\nWHERE us.order_count > 0\nORDER BY us.spending_rank;`
+  }
+
+  const selected = examples[example]
+  if (selected) {
+    sqlExample.value = selected
+    showMessage(`已加载 SQL 示例: ${example}`, 'success')
+  }
+}
+
 // JsonFormat 示例数据 - 大型 JSON 测试性能
 const sampleJson = ref(`{
   "name": "Lone Format Library - Performance Test",
@@ -511,6 +553,9 @@ const activeTab = ref('interactive')
           </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-filter' }]" @click="activeTab = 'xml-filter'">
             🔍 XML Filter
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql' }]" @click="activeTab = 'sql'">
+            💾 SQL Format
           </button>
         </div>
 
@@ -879,6 +924,67 @@ const activeTab = ref('interactive')
             <!-- XML 格式化组件 -->
             <div class="xml-filter-viewer">
               <XmlFormat ref="xmlFilterTestRef" v-model="xmlFilterTestData" />
+            </div>
+          </div>
+
+          <!-- SQL Format Tab -->
+          <div v-show="activeTab === 'sql'" class="component-item">
+            <h3>💾 SQL Format Demo</h3>
+            <p class="description">
+              SQL 格式化组件支持多种 SQL 方言，提供语法高亮、格式化和压缩功能。
+              支持 MySQL、PostgreSQL、SQLite、PL/SQL、T-SQL 等方言。
+            </p>
+
+            <!-- 主题和方言选择器 -->
+            <div class="control-panel">
+              <div class="control-group">
+                <label for="sql-theme">主题:</label>
+                <select id="sql-theme" v-model="sqlTheme" class="theme-select">
+                  <option value="github-light">GitHub Light</option>
+                  <option value="github-dark">GitHub Dark</option>
+                  <option value="min-light">Min Light</option>
+                  <option value="slack-ochin">Slack Ochin</option>
+                </select>
+                <span class="current-theme-display">当前: {{ getThemeDisplayName(sqlTheme) }}</span>
+              </div>
+            </div>
+
+            <!-- SQL 格式化组件 -->
+            <SqlFormat 
+              ref="sqlFormatRef" 
+              v-model="sqlExample" 
+              :theme="sqlTheme"
+              :dialect="sqlDialect"
+              :show-toolbar="true"
+              @copy-success="() => showMessage('SQL 已复制到剪贴板！', 'success')"
+              @copy-error="() => showMessage('复制失败', 'error')"
+              @compress="() => showMessage('SQL 已压缩', 'success')"
+              @format="() => showMessage('SQL 已格式化', 'success')"
+            />
+
+            <!-- SQL 示例按钮 -->
+            <div class="sql-examples">
+              <h4>SQL 示例:</h4>
+              <div class="example-buttons">
+                <button class="example-btn" @click="loadSqlExample('select')">
+                  SELECT 查询
+                </button>
+                <button class="example-btn" @click="loadSqlExample('join')">
+                  JOIN 查询
+                </button>
+                <button class="example-btn" @click="loadSqlExample('insert')">
+                  INSERT 语句
+                </button>
+                <button class="example-btn" @click="loadSqlExample('update')">
+                  UPDATE 语句
+                </button>
+                <button class="example-btn" @click="loadSqlExample('create')">
+                  CREATE TABLE
+                </button>
+                <button class="example-btn" @click="loadSqlExample('complex')">
+                  复杂查询
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1501,6 +1607,22 @@ const activeTab = ref('interactive')
 .filter-examples h4 {
   margin: 0 0 16px 0;
   color: #1976d2;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* SQL Examples 样式 */
+.sql-examples {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f3e5f5;
+  border-radius: 8px;
+  border-left: 4px solid #9c27b0;
+}
+
+.sql-examples h4 {
+  margin: 0 0 16px 0;
+  color: #7b1fa2;
   font-size: 1.1rem;
   font-weight: 600;
 }
