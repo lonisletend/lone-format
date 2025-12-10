@@ -48,8 +48,26 @@ const defaultBuilderOptions = {
  * 检查 XML 中的实体引用是否合法
  * 合法的预定义实体引用：&lt; &gt; &amp; &quot; &apos;
  * 数字字符引用：&#数字; 或 &#x十六进制;
+ * 注意：CDATA 区域内的内容会被跳过，不进行实体引用验证
  */
 const validateEntityReferences = (xmlString: string): { valid: boolean; error?: string } => {
+  // 首先找出所有 CDATA 区域的位置
+  const cdataPattern = /<!\[CDATA\[([\s\S]*?)\]\]>/g
+  const cdataRanges: Array<{ start: number; end: number }> = []
+  let cdataMatch
+  
+  while ((cdataMatch = cdataPattern.exec(xmlString)) !== null) {
+    cdataRanges.push({
+      start: cdataMatch.index,
+      end: cdataMatch.index + cdataMatch[0].length
+    })
+  }
+  
+  // 检查位置是否在 CDATA 区域内
+  const isInCDATA = (position: number): boolean => {
+    return cdataRanges.some(range => position >= range.start && position < range.end)
+  }
+  
   // 匹配所有实体引用：&xxx;
   const entityPattern = /&([a-zA-Z0-9#]+);/g
   const validPredefinedEntities = ['lt', 'gt', 'amp', 'quot', 'apos']
@@ -61,6 +79,11 @@ const validateEntityReferences = (xmlString: string): { valid: boolean; error?: 
   while ((match = entityPattern.exec(xmlString)) !== null) {
     const entityName = match[1]
     const entityPosition = match.index
+    
+    // 如果实体引用在 CDATA 区域内，跳过验证
+    if (isInCDATA(entityPosition)) {
+      continue
+    }
     
     // 计算行号
     const textBeforeEntity = xmlString.substring(lastIndex, entityPosition)

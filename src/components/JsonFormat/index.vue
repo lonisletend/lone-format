@@ -861,7 +861,7 @@ defineExpose({
   background: v-bind('currentTheme.colors.background');
   font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: v-bind('currentTheme.colors.text');
 }
 
