@@ -155,6 +155,7 @@ const parseError = ref<string>('')
 const currentDialect = ref<SqlDialect>(props.dialect)
 const parsedClauses = ref<SqlClause[]>([])
 const expandedClauses = ref<Set<string>>(new Set())
+const formattedSql = ref<string>('')
 
 // 计算属性
 const isValidSql = computed(() => parseError.value === '')
@@ -178,12 +179,19 @@ const parseSqlString = (sqlString: string) => {
     if (!validation.valid) {
       parseError.value = validation.error || 'Invalid SQL'
       parsedClauses.value = []
+      formattedSql.value = ''
       return
     }
 
     // 解析子句
     const parsed = parseSqlClauses(sqlString)
     parsedClauses.value = parsed.clauses
+    
+    // 保存格式化后的 SQL（用于复制功能）
+    formattedSql.value = formatSql(sqlString, {
+      dialect: currentDialect.value,
+      tabWidth: props.tabWidth,
+    })
     
     // 默认展开所有子句
     expandedClauses.value = new Set(parsed.clauses.map(c => c.path || ''))
@@ -192,6 +200,7 @@ const parseSqlString = (sqlString: string) => {
   } catch (error) {
     parseError.value = error instanceof Error ? error.message : 'Unknown parse error'
     parsedClauses.value = []
+    formattedSql.value = ''
   }
 }
 
@@ -230,7 +239,8 @@ const highlightSql = (sqlString: string): string => {
           color = theme.sqlPunctuation
           break
         case 'whitespace':
-          return token.value
+          // 将空格转换为 HTML 实体以保留缩进
+          return token.value.replace(/ /g, '&nbsp;').replace(/\n/g, '\n')
       }
       
       // HTML 转义
@@ -330,8 +340,10 @@ const copySql = async () => {
   if (!isValidSql.value) return
 
   try {
-    await navigator.clipboard.writeText(props.modelValue)
-    emit('copy-success', props.modelValue)
+    // 复制格式化后的 SQL，而不是原始输入
+    const sqlToCopy = formattedSql.value || props.modelValue
+    await navigator.clipboard.writeText(sqlToCopy)
+    emit('copy-success', sqlToCopy)
   } catch (error) {
     const err = error instanceof Error ? error : new Error('Failed to copy')
     emit('copy-error', err)

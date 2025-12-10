@@ -771,7 +771,7 @@ defineExpose({
   /* 统一设置字体，避免子元素字体不一致 */
   font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: v-bind('currentTheme.colors.text');
 }
 
