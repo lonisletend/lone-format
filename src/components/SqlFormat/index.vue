@@ -524,8 +524,7 @@ defineExpose({
 
 /* 内容区域 */
 .sql-format__content {
-  padding: 16px;
-  max-height: 600px;
+  flex: 1;
   overflow: auto;
 }
 
