@@ -16,6 +16,7 @@ on:
           - major
 
 permissions:
+  id-token: write  # Required for OIDC
   contents: write
   pull-requests: write
   packages: write
