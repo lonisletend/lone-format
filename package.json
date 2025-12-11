@@ -1,6 +1,6 @@
 {
   "name": "lone-format",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "type": "module",
   "description": "A Vue 3 component library for formatting with tree-shaking support",
   "main": "./dist/lone-format.umd.cjs",
