@@ -31,8 +31,15 @@ git push origin publish  # 推送触发工作流
 #### 1. NPM_TOKEN Secret
 需要在 GitHub 仓库设置中添加 `NPM_TOKEN` secret：
 1. 访问 npmjs.com → Account → Access Tokens
-2. 创建一个 "Automation" 类型的 token
+2. 创建一个 "Automation" 类型的 token（重要：必须是 Automation 类型，不能是 Publish 类型）
+   - Automation tokens 可以绕过 2FA/OTP 要求
+   - Publish tokens 在启用 2FA 时会要求 OTP，导致 GitHub Actions 发布失败
 3. 在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加 `NPM_TOKEN`
+
+**注意**：工作流使用 `--provenance` 标志发布包，这是 npm 推荐的最佳实践，可以：
+- 提供包的来源证明
+- 在某些情况下绕过 OTP 要求
+- 增强包的安全性和可信度
 
 #### 2. 分支保护规则（可选）
 为了确保自动合并正常工作，建议为 main 分支设置适当的保护规则：
@@ -69,8 +76,15 @@ git push origin publish  # 推送触发工作流
 
 #### 发布失败
 - 检查 NPM_TOKEN 是否正确设置
+- **检查 NPM_TOKEN 类型是否为 "Automation"**（如果是 "Publish" 类型会在启用 2FA 时要求 OTP）
 - 检查包名是否已被占用
 - 检查构建过程是否有错误
+
+#### EOTP 错误（要求一次性密码）
+如果遇到 `npm error code EOTP` 错误：
+1. 确认 NPM_TOKEN 是 "Automation" 类型而不是 "Publish" 类型
+2. 确认工作流使用了 `--provenance` 标志（已包含在当前配置中）
+3. 如果仍有问题，在 npmjs.com 账户设置中检查 2FA 配置
 
 #### 自动合并失败  
 - 检查 main 分支保护规则设置
