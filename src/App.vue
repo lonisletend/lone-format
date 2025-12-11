@@ -334,6 +334,7 @@ const loadSqlExample = (example: string) => {
 UPDATE users SET status = 'inactive', updated_at = NOW (), last_login = NULL WHERE last_login < DATE_SUB (NOW (), INTERVAL 6 MONTH) AND status = 'active';`,
     'create': `-- CREATE TABLE statement 
 CREATE TABLE IF NOT EXISTS orders ( id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, user_id BIGINT UNSIGNED NOT NULL, order_number VARCHAR(50) NOT NULL, total_amount DECIMAL(10, 2) NOT NULL, status ENUM ('pending', 'processing', 'completed', 'cancelled') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (id), UNIQUE KEY uk_order_number (order_number), KEY idx_user_id (user_id), KEY idx_status (status), KEY idx_created_at (created_at), CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;`,
+    'subquery': `-- Subquery example\nSELECT supplier_name, city\nFROM (\n  SELECT *\n  FROM suppliers\n  JOIN addresses ON suppliers.address_id = addresses.id\n) AS suppliers\nWHERE supplier_id > 500\nORDER BY supplier_name ASC, city DESC;`,
     'complex': `-- Complex query with subquery and window functions\nWITH user_stats AS (\n  SELECT \n    u.id,\n    u.username,\n    COUNT(DISTINCT o.id) as order_count,\n    SUM(o.total_amount) as total_spent,\n    AVG(o.total_amount) as avg_order_value,\n    ROW_NUMBER() OVER (ORDER BY SUM(o.total_amount) DESC) as spending_rank\n  FROM users u\n  LEFT JOIN orders o ON u.id = o.user_id\n  WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)\n  GROUP BY u.id, u.username\n)\nSELECT \n  us.*,\n  CASE \n    WHEN us.spending_rank <= 10 THEN 'VIP'\n    WHEN us.spending_rank <= 50 THEN 'Premium'\n    ELSE 'Regular'\n  END as customer_tier\nFROM user_stats us\nWHERE us.order_count > 0\nORDER BY us.spending_rank;`
   }
 
@@ -982,6 +983,9 @@ const activeTab = ref('interactive')
                 </button>
                 <button class="example-btn" @click="loadSqlExample('create')">
                   CREATE TABLE
+                </button>
+                <button class="example-btn" @click="loadSqlExample('subquery')">
+                  子查询
                 </button>
                 <button class="example-btn" @click="loadSqlExample('complex')">
                   复杂查询

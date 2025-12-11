@@ -593,6 +593,7 @@ export const formatSql = (
     // 处理 SELECT 字段：在逗号后换行（但要排除括号内的逗号）
     const clauseLines = sql.split('\n')
     const processedLines: string[] = []
+    let subqueryDepth = 0  // 跟踪子查询嵌套深度
     
     // 通用函数：分割字段（排除括号内的逗号）
     const splitFields = (fieldsPart: string): string[] => {
@@ -719,12 +720,20 @@ export const formatSql = (
       const line = clauseLines[i]
       const trimmed = line.trim()
       
+      // 检测 ) AS 表示离开子查询（在处理当前行之前）
+      if (/^\)\s+AS\s+/i.test(trimmed)) {
+        subqueryDepth = Math.max(0, subqueryDepth - 1)
+      }
+      
+      // 计算当前行的额外缩进
+      const extraIndent = indent.repeat(subqueryDepth)
+      
       // 检查是否已经有缩进（来自 INSERT、UPDATE 等特殊处理）
       const hasIndent = line !== trimmed && trimmed.length > 0
       
-      // 如果已经有缩进，直接保留原行
+      // 如果已经有缩进，直接保留原行（但可能需要添加子查询缩进）
       if (hasIndent && !/^(SELECT|FROM|GROUP BY|ORDER BY)\b/i.test(trimmed)) {
-        processedLines.push(line)
+        processedLines.push(extraIndent + line)
         continue
       }
       
@@ -737,7 +746,7 @@ export const formatSql = (
           const fields = splitFields(fieldsPart)
           
           // 总是换行和缩进字段，不管字段数量
-          processedLines.push(selectPart)
+          processedLines.push(extraIndent + selectPart)
           fields.forEach((field, idx) => {
             const isLast = idx === fields.length - 1
             
@@ -746,30 +755,30 @@ export const formatSql = (
               const caseLines = formatCaseWhen(field)
               caseLines.forEach((caseLine, caseIdx) => {
                 if (caseIdx === 0) {
-                  // 第一行：添加缩进 2 spaces
-                  processedLines.push(indent + caseLine)
+                  // 第一行：添加缩进 2 spaces + 子查询缩进
+                  processedLines.push(extraIndent + indent + caseLine)
                 } else if (caseIdx === caseLines.length - 1) {
                   // 最后一行：END，添加逗号（如果不是最后一个字段）
-                  processedLines.push(indent + caseLine + (isLast ? '' : ','))
+                  processedLines.push(extraIndent + indent + caseLine + (isLast ? '' : ','))
                 } else {
                   // 中间行：已经在 formatCaseWhen 中处理了缩进
-                  processedLines.push(indent + caseLine)
+                  processedLines.push(extraIndent + indent + caseLine)
                 }
               })
             } else {
-              // 普通字段 - 缩进 2 spaces
+              // 普通字段 - 缩进 2 spaces + 子查询缩进
               if (isLast) {
-                processedLines.push(indent + field)
+                processedLines.push(extraIndent + indent + field)
               } else {
-                processedLines.push(indent + field + ',')
+                processedLines.push(extraIndent + indent + field + ',')
               }
             }
           })
         } else {
-          processedLines.push(trimmed)
+          processedLines.push(extraIndent + trimmed)
         }
       }
-      // 检查是否是 FROM 行 - 需要处理表名和 JOIN
+      // 检查是否是 FROM 行 - 需要处理表名、子查询和 JOIN
       else if (/^FROM\b/i.test(trimmed)) {
         const match = trimmed.match(/^(FROM\s+)(.*)/i)
         if (match) {
@@ -777,18 +786,25 @@ export const formatSql = (
           const tablePart = match[2].trim()
           
           // FROM 单独一行
-          processedLines.push(fromPart)
+          processedLines.push(extraIndent + fromPart)
           
-          // 表名缩进 2 spaces
-          processedLines.push(indent + tablePart)
+          // 检查是否是子查询（以 ( 开头）
+          if (tablePart === '(') {
+            // 子查询情况：添加左括号，然后增加缩进深度
+            processedLines.push(extraIndent + indent + '(')
+            subqueryDepth++
+          } else {
+            // 表名缩进 2 spaces
+            processedLines.push(extraIndent + indent + tablePart)
+          }
         } else {
-          processedLines.push(trimmed)
+          processedLines.push(extraIndent + trimmed)
         }
       }
       // 检查是否是 JOIN 行
       else if (/^(INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN|OUTER\s+JOIN|JOIN)\b/i.test(trimmed)) {
-        // JOIN 缩进 2 spaces
-        processedLines.push(indent + trimmed)
+        // JOIN 缩进 2 spaces + 子查询缩进
+        processedLines.push(extraIndent + indent + trimmed)
       }
       // 检查是否是 GROUP BY 行
       else if (/^GROUP BY\b/i.test(trimmed)) {
@@ -799,19 +815,19 @@ export const formatSql = (
           const fields = splitFields(fieldsPart)
           
           if (fields.length > 1) {
-            processedLines.push(groupByPart)
+            processedLines.push(extraIndent + groupByPart)
             fields.forEach((field, idx) => {
               if (idx === fields.length - 1) {
-                processedLines.push(indent + field)
+                processedLines.push(extraIndent + indent + field)
               } else {
-                processedLines.push(indent + field + ',')
+                processedLines.push(extraIndent + indent + field + ',')
               }
             })
           } else {
-            processedLines.push(line)
+            processedLines.push(extraIndent + line)
           }
         } else {
-          processedLines.push(line)
+          processedLines.push(extraIndent + line)
         }
       }
       // 检查是否是 ORDER BY 行
@@ -823,23 +839,29 @@ export const formatSql = (
           const fields = splitFields(fieldsPart)
           
           if (fields.length > 1) {
-            processedLines.push(orderByPart)
+            processedLines.push(extraIndent + orderByPart)
             fields.forEach((field, idx) => {
               if (idx === fields.length - 1) {
-                processedLines.push(indent + field)
+                processedLines.push(extraIndent + indent + field)
               } else {
-                processedLines.push(indent + field + ',')
+                processedLines.push(extraIndent + indent + field + ',')
               }
             })
           } else {
-            processedLines.push(trimmed)
+            processedLines.push(extraIndent + trimmed)
           }
         } else {
-          processedLines.push(trimmed)
+          processedLines.push(extraIndent + trimmed)
         }
       }
       else {
-        processedLines.push(trimmed)
+        // 处理 ) AS alias - 需要减少缩进层级
+        if (/^\)\s+AS\s+/i.test(trimmed)) {
+          processedLines.push(extraIndent + trimmed)
+        } else {
+          // 其他情况（WHERE, HAVING等）也需要子查询缩进
+          processedLines.push(extraIndent + trimmed)
+        }
       }
     }
     
@@ -1033,6 +1055,18 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
       }
       
       if (isNewClause) {
+        // 在开始新子句之前，如果有待处理的注释，将它们作为独立的不可折叠子句添加
+        if (pendingComments.length > 0) {
+          clauses.push({
+            type: 'UNKNOWN',
+            content: pendingComments.join('\n'),
+            raw: pendingComments.join('\n'),
+            collapsible: false,
+            path: `clause-${clauses.length}`,
+          })
+          pendingComments = []
+        }
+        
         // 保存之前的子句
         if (currentClause && currentContent.length > 0) {
           currentClause.content = currentContent.join('\n')
@@ -1040,9 +1074,8 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
           clauses.push(currentClause)
         }
         
-        // 开始新的子句
-        currentContent = [...pendingComments, line]
-        pendingComments = []
+        // 开始新的子句（不包含之前的注释）
+        currentContent = [line]
         currentClause = {
           type: clauseType,
           content: '',
