@@ -629,6 +629,18 @@ defineExpose({
   opacity: 1;
 }
 
+.sql-format__toggle-btn:focus {
+  outline: none;
+  opacity: 1;
+}
+
+.sql-format__toggle-btn:focus-visible {
+  outline: 2px solid v-bind('currentTheme.colors.buttonPrimary');
+  outline-offset: 2px;
+  opacity: 1;
+  border-radius: 2px;
+}
+
 .sql-format__toggle-icon {
   display: inline-block;
   transition: transform 0.15s ease;
