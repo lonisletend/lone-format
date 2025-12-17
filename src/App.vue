@@ -505,6 +505,9 @@ const interactiveXml = ref(`<?xml version="1.0" encoding="UTF-8"?>
   </book>
 </library>`)
 
+// SQL 互动式编辑器的数据
+const interactiveSql = ref(`select * from t where a = '1' and b = '2';`)
+
 // Tab 管理
 const activeTab = ref('interactive')
 </script>
@@ -559,6 +562,9 @@ const activeTab = ref('interactive')
           </button>
           <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql' }]" @click="activeTab = 'sql'">
             💾 SQL Format
+          </button>
+          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql-interactive' }]" @click="activeTab = 'sql-interactive'">
+            🚀 SQL Interactive
           </button>
         </div>
 
@@ -990,6 +996,36 @@ const activeTab = ref('interactive')
                 <button class="example-btn" @click="loadSqlExample('complex')">
                   复杂查询
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SQL Interactive Editor Tab -->
+          <div v-show="activeTab === 'sql-interactive'" class="component-item component-item--full">
+            <h3>🚀 Interactive SQL Editor</h3>
+            <p class="description">
+              双向编辑器：左侧输入 SQL 字符串，右侧实时预览格式化结果。
+              你可以在左侧编辑原始 SQL，测试不同的格式化效果。
+            </p>
+
+            <div class="interactive-editor">
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>📝 SQL Input</h4>
+                  <span class="panel-info">原始 SQL 字符串</span>
+                </div>
+                <textarea v-model="interactiveSql" class="json-textarea" placeholder="在这里输入 SQL 语句..."
+                  spellcheck="false"></textarea>
+              </div>
+
+              <div class="editor-panel">
+                <div class="panel-header">
+                  <h4>🎨 Formatted View</h4>
+                  <span class="panel-info">格式化预览</span>
+                </div>
+                <div class="json-format-wrapper">
+                  <SqlFormat v-model="interactiveSql" />
+                </div>
               </div>
             </div>
           </div>
