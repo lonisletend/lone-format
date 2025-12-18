@@ -1013,7 +1013,9 @@ export const compressSql = (sqlString: string): string => {
     // 压缩空白字符
     result = result
       .replace(/\s+/g, ' ')  // 多个空白字符替换为单个空格
-      .replace(/\s*([(),;])\s*/g, '$1')  // 移除标点符号周围的空格
+      .replace(/\s*([,;])\s*/g, '$1')  // 移除逗号、分号周围的空格
+      .replace(/\(\s+/g, '(')  // 移除左括号后的空格
+      .replace(/\s+\)/g, ')')  // 移除右括号前的空格
       .trim()
     
     // 恢复字符串字面量
