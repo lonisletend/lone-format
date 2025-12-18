@@ -526,13 +526,15 @@ defineExpose({
 .sql-format__content {
   flex: 1;
   overflow: auto;
+  padding: 8px 16px 8px 16px;
 }
 
 .sql-format__error {
   background-color: v-bind('currentTheme.colors.errorBackground');
   color: v-bind('currentTheme.colors.error');
-  padding: 16px;
-  border-radius: 4px;
+  padding: 8px 16px 8px 16px;
+  border-radius: 6px;
+  border: 1px solid v-bind('currentTheme.colors.error') + '66';
 }
 
 .sql-format__error h4 {
@@ -557,7 +559,6 @@ defineExpose({
 
 .sql-format__code {
   margin: 0;
-  padding: 12px 16px;
   background-color: v-bind('currentTheme.colors.background');
   border-radius: 4px;
   overflow-x: auto;
@@ -581,7 +582,6 @@ defineExpose({
   gap: 0;
   background-color: v-bind('currentTheme.colors.background');
   border-radius: 4px;
-  padding: 12px 16px;
 }
 
 .sql-format__clause {
