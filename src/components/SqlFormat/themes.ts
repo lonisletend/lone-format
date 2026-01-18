@@ -108,53 +108,53 @@ const githubDark: ThemeConfig = {
 }
 
 /**
- * Min Light 主题
+ * Min Light 主题 - 与 JsonFormat 保持一致
  */
 const minLight: ThemeConfig = {
   name: 'min-light',
   colors: {
-    // 背景色
+    // 背景色 - 纯白简洁
     background: '#ffffff',
     surfaceBackground: '#fafafa',
-    hoverBackground: '#f5f5f5',
+    hoverBackground: '#f9f9f9',
 
-    // 边框色
+    // 边框色 - 极浅灰
     border: '#e5e5e5',
 
-    // 文本色
-    text: '#171717',
-    textSecondary: '#737373',
+    // 文本色 - 深灰而非纯黑
+    text: '#333333',
+    textSecondary: '#888888',
 
-    // 按钮样式
-    buttonBackground: '#fafafa',
-    buttonBackgroundHover: '#f5f5f5',
-    buttonBorder: '#e5e5e5',
-    buttonText: '#171717',
-    buttonPrimary: '#22c55e',
-    buttonPrimaryHover: '#16a34a',
+    // 按钮样式 - 简约设计
+    buttonBackground: '#f8f8f8',
+    buttonBackgroundHover: '#eeeeee',
+    buttonBorder: '#e0e0e0',
+    buttonText: '#333333',
+    buttonPrimary: '#007acc',
+    buttonPrimaryHover: '#005a9e',
 
-    // 状态指示
+    // 状态指示 - 柔和色彩
     success: '#22c55e',
-    successBackground: '#dcfce7',
+    successBackground: '#f0fdf4',
     error: '#ef4444',
-    errorBackground: '#fee2e2',
+    errorBackground: '#fef2f2',
 
-    // SQL 语法高亮
-    sqlKeyword: '#dc2626',        // 关键字 - 红色
-    sqlFunction: '#9333ea',       // 函数 - 紫色
-    sqlString: '#1e40af',         // 字符串 - 深蓝
-    sqlNumber: '#2563eb',         // 数字 - 蓝色
-    sqlComment: '#737373',        // 注释 - 灰色
-    sqlOperator: '#dc2626',       // 操作符 - 红色
-    sqlIdentifier: '#171717',     // 标识符 - 深灰
-    sqlPunctuation: '#171717',    // 标点 - 深灰
+    // SQL 语法高亮 - 简约配色（与 JSON 对应）
+    sqlKeyword: '#ef4444',        // 关键字 - 对应 Boolean 红色系
+    sqlFunction: '#8b5cf6',       // 函数 - 对应 Boolean 紫色
+    sqlString: '#22c55e',         // 字符串 - 对应 String 绿色
+    sqlNumber: '#3b82f6',         // 数字 - 对应 Number 蓝色
+    sqlComment: '#6b7280',        // 注释 - 对应 Null 灰色
+    sqlOperator: '#ef4444',       // 操作符 - 红色
+    sqlIdentifier: '#1f2937',     // 标识符 - 对应 Key 深灰
+    sqlPunctuation: '#374151',    // 标点 - 对应 Bracket 灰色
 
     // 折叠效果
-    collapsedBackground: '#dbeafe', // 折叠信息背景色 - 浅蓝
-    collapsedText: '#1d4ed8',       // 折叠信息文本色 - 蓝色
+    collapsedBackground: '#e0f2fe', // 折叠信息背景色 - 浅蓝
+    collapsedText: '#0284c7',       // 折叠信息文本色 - 蓝色
 
     // 缩进指示线
-    indentLine: '#e0e0e0',          // 对齐线 - 灰色
+    indentLine: '#e5e7eb',          // 对齐线 - 灰色
   },
 }
 
