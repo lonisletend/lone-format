@@ -1,12 +1,13 @@
 /**
  * SQL 解析和格式化工具
- * 轻量级实现，不依赖外部格式化库
+ * 基于 sql-formatter 的稳定实现
  */
 
+import { format } from 'sql-formatter'
 import type { SqlClause, ParsedSql, SqlFormatOptions } from './types'
 
 /**
- * SQL 关键字列表（用于基础验证和解析）
+ * SQL 关键字列表（用于基础验证）
  */
 const SQL_KEYWORDS = [
   'SELECT', 'FROM', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'OUTER',
@@ -18,16 +19,18 @@ const SQL_KEYWORDS = [
 ]
 
 /**
- * 主要子句关键字
+ * 主要子句关键字（用于解析 SQL 结构）
  */
 const MAJOR_CLAUSES = [
   'WITH', 'SELECT', 'FROM', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT',
-  'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP',
-  'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'OUTER JOIN'
+  'INSERT INTO', 'UPDATE', 'SET', 'DELETE FROM', 'CREATE', 'ALTER', 'DROP',
+  'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'CROSS JOIN', 'OUTER JOIN', 'JOIN',
+  'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT'
 ]
 
 /**
- * 验证 SQL 字符串（增强验证）
+ * 验证 SQL 字符串
+ * 使用 sql-formatter 进行验证，同时保留基础检查
  */
 export const validateSql = (sqlString: string): { valid: boolean; error?: string } => {
   try {
@@ -81,66 +84,17 @@ export const validateSql = (sqlString: string): { valid: boolean; error?: string
       return { valid: false, error: `Mismatched parentheses: ${parenCount} unclosed opening parenthesis` }
     }
 
-    // 3. 引号匹配验证
-    let singleQuoteCount = 0
-    let doubleQuoteCount = 0
-    let escaped = false
-    
-    for (let i = 0; i < sqlString.length; i++) {
-      const char = sqlString[i]
-      
-      if (escaped) {
-        escaped = false
-        continue
+    // 3. 使用 sql-formatter 进行验证
+    try {
+      // 尝试格式化 SQL，如果失败则说明语法有问题
+      format(sqlString, { language: 'sql' })
+      return { valid: true }
+    } catch (formatError) {
+      // sql-formatter 解析失败，返回错误信息
+      return {
+        valid: false,
+        error: formatError instanceof Error ? formatError.message : 'SQL syntax error',
       }
-      
-      if (char === '\\') {
-        escaped = true
-        continue
-      }
-      
-      if (char === "'") singleQuoteCount++
-      if (char === '"') doubleQuoteCount++
-    }
-    
-    if (singleQuoteCount % 2 !== 0) {
-      return { valid: false, error: 'Mismatched single quotes' }
-    }
-    if (doubleQuoteCount % 2 !== 0) {
-      return { valid: false, error: 'Mismatched double quotes' }
-    }
-
-    // 4. 语法结构验证
-    // 移除字符串字面量和注释以简化分析
-    let cleanSql = sqlString
-      .replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '?') // 字符串替换为 ?
-      .replace(/--[^\n]*/g, '') // 移除单行注释
-      .replace(/\/\*[\s\S]*?\*\//g, '') // 移除多行注释
-      .toUpperCase()
-      .trim()
-
-    // 检查 SQL 语句类型和基本结构
-    const statementType = getStatementType(cleanSql)
-    
-    switch (statementType) {
-      case 'WITH':
-        return validateWithStatement(cleanSql)
-      case 'SELECT':
-        return validateSelectStatement(cleanSql)
-      case 'INSERT':
-        return validateInsertStatement(cleanSql)
-      case 'UPDATE':
-        return validateUpdateStatement(cleanSql)
-      case 'DELETE':
-        return validateDeleteStatement(cleanSql)
-      case 'CREATE':
-      case 'ALTER':
-      case 'DROP':
-        return validateDdlStatement(cleanSql, statementType)
-      case 'UNKNOWN':
-        return { valid: false, error: 'Unable to determine SQL statement type' }
-      default:
-        return { valid: true }
     }
   } catch (error) {
     return {
@@ -151,888 +105,340 @@ export const validateSql = (sqlString: string): { valid: boolean; error?: string
 }
 
 /**
- * 获取 SQL 语句类型
+ * 格式化 INSERT VALUES 子句，使每个值在单独的行上
  */
-function getStatementType(sql: string): string {
-  const firstKeyword = sql.trim().split(/\s+/)[0]
-  return ['WITH', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP'].includes(firstKeyword)
-    ? firstKeyword
-    : 'UNKNOWN'
-}
-
-/**
- * 验证 SELECT 语句
- */
-function validateSelectStatement(sql: string): { valid: boolean; error?: string } {
-  // SELECT 必须跟列名或 *
-  if (!/SELECT\s+.+/.test(sql)) {
-    return { valid: false, error: 'SELECT statement must specify columns' }
-  }
-
-  // 如果有 FROM，检查是否有表名
-  if (/\bFROM\b/.test(sql)) {
-    if (!/FROM\s+\S+/.test(sql)) {
-      return { valid: false, error: 'FROM clause must specify a table name' }
+const formatInsertValues = (sql: string, tabWidth: number): string => {
+  // 查找 VALUES 关键字的位置
+  const valuesMatch = sql.match(/\bVALUES\s*/i)
+  if (!valuesMatch || valuesMatch.index === undefined) return sql
+  
+  const beforeValues = sql.slice(0, valuesMatch.index! + valuesMatch[0].length)
+  const afterValuesKeyword = sql.slice(valuesMatch.index! + valuesMatch[0].length)
+  
+  // 解析每个值元组 - 使用深度计数来正确处理嵌套括号
+  const tuples: string[] = []
+  let depth = 0
+  let currentTuple = ''
+  let inString = false
+  let stringChar = ''
+  let i = 0
+  
+  while (i < afterValuesKeyword.length) {
+    const char = afterValuesKeyword[i]
+    const prevChar = i > 0 ? afterValuesKeyword[i - 1] : ''
+    
+    // 处理字符串
+    if ((char === "'" || char === '"') && prevChar !== '\\') {
+      if (!inString) {
+        inString = true
+        stringChar = char
+      } else if (char === stringChar) {
+        inString = false
+      }
     }
-  }
-
-  // 检查 GROUP BY 后是否有列
-  if (/\bGROUP\s+BY\b/.test(sql)) {
-    if (!/GROUP\s+BY\s+\S+/.test(sql)) {
-      return { valid: false, error: 'GROUP BY must specify columns' }
+    
+    if (!inString) {
+      if (char === '(') {
+        if (depth === 0) {
+          currentTuple = char
+        } else {
+          currentTuple += char
+        }
+        depth++
+      } else if (char === ')') {
+        currentTuple += char
+        depth--
+        if (depth === 0 && currentTuple.trim()) {
+          tuples.push(currentTuple.trim())
+          currentTuple = ''
+        }
+      } else if (char === ';' && depth === 0) {
+        // 遇到分号，结束解析
+        break
+      } else if (depth > 0) {
+        currentTuple += char
+      }
+    } else {
+      if (depth > 0) {
+        currentTuple += char
+      }
     }
+    
+    i++
   }
-
-  // 检查 ORDER BY 后是否有列
-  if (/\bORDER\s+BY\b/.test(sql)) {
-    if (!/ORDER\s+BY\s+\S+/.test(sql)) {
-      return { valid: false, error: 'ORDER BY must specify columns' }
+  
+  if (tuples.length === 0) {
+    return sql // 没有找到元组，返回原SQL
+  }
+  
+  // 格式化每个元组：在括号内的逗号后换行
+  const indent = ' '.repeat(tabWidth)
+  const formattedTuples = tuples.map(tuple => {
+    // 提取括号内的内容
+    const innerContent = tuple.slice(1, -1) // 去掉开始和结束的括号
+    
+    // 分割逗号分隔的值（需要考虑字符串和嵌套函数）
+    const values: string[] = []
+    let currentValue = ''
+    let parenDepth = 0
+    let inStr = false
+    let strChar = ''
+    
+    for (let j = 0; j < innerContent.length; j++) {
+      const c = innerContent[j]
+      const prev = j > 0 ? innerContent[j - 1] : ''
+      
+      if ((c === "'" || c === '"') && prev !== '\\') {
+        if (!inStr) {
+          inStr = true
+          strChar = c
+        } else if (c === strChar) {
+          inStr = false
+        }
+      }
+      
+      if (!inStr) {
+        if (c === '(') parenDepth++
+        if (c === ')') parenDepth--
+        
+        if (c === ',' && parenDepth === 0) {
+          values.push(currentValue.trim())
+          currentValue = ''
+          continue
+        }
+      }
+      
+      currentValue += c
     }
-  }
-
-  // 检查 JOIN 语句
-  if (/\bJOIN\b/.test(sql)) {
-    // JOIN 后必须有表名
-    if (!/JOIN\s+\S+/.test(sql)) {
-      return { valid: false, error: 'JOIN must specify a table name' }
+    
+    if (currentValue.trim()) {
+      values.push(currentValue.trim())
     }
-    // JOIN 必须有 ON 条件（除非是 CROSS JOIN）
-    if (!/\bON\b/.test(sql) && !/CROSS\s+JOIN/.test(sql)) {
-      return { valid: false, error: 'JOIN must have ON condition' }
-    }
+    
+    // 格式化为多行
+    const formattedValues = values.map((v, idx) => {
+      const comma = idx < values.length - 1 ? ',' : ''
+      return `${indent}${indent}${v}${comma}`
+    }).join('\n')
+    
+    return `${indent}(\n${formattedValues}\n${indent})`
+  })
+  
+  // 组合结果
+  const formattedValuesSection = formattedTuples.map((t, idx) => {
+    const comma = idx < formattedTuples.length - 1 ? ',' : ';'
+    return t + comma
+  }).join('\n')
+  
+  // 找到剩余的部分（分号后的内容）
+  // 注意：如果在 i 位置是分号，我们已经在 formattedValuesSection 中添加了，所以要跳过它
+  let remainingStartIndex = i
+  if (remainingStartIndex < afterValuesKeyword.length && afterValuesKeyword[remainingStartIndex] === ';') {
+    remainingStartIndex++ // 跳过分号
   }
-
-  return { valid: true }
-}
-
-/**
- * 验证 WITH 语句 (CTE - Common Table Expression)
- */
-function validateWithStatement(sql: string): { valid: boolean; error?: string } {
-  // WITH 后必须有 CTE 名称
-  if (!/WITH\s+\S+/.test(sql)) {
-    return { valid: false, error: 'WITH must specify a CTE name' }
-  }
-
-  // CTE 必须有 AS 关键字
-  if (!/\bAS\b/.test(sql)) {
-    return { valid: false, error: 'CTE must have AS clause' }
-  }
-
-  // WITH 语句最终必须有主查询（通常是 SELECT）
-  // 检查在 WITH...AS(...) 之后是否有 SELECT/INSERT/UPDATE/DELETE
-  const hasMainQuery = /\)\s*(SELECT|INSERT|UPDATE|DELETE)\b/.test(sql)
-  if (!hasMainQuery) {
-    return { valid: false, error: 'WITH statement must have a main query (SELECT/INSERT/UPDATE/DELETE)' }
-  }
-
-  return { valid: true }
-}
-
-/**
- * 验证 INSERT 语句
- */
-function validateInsertStatement(sql: string): { valid: boolean; error?: string } {
-  // INSERT INTO 必须跟表名
-  if (!/INSERT\s+INTO\s+\S+/.test(sql)) {
-    return { valid: false, error: 'INSERT INTO must specify a table name' }
-  }
-
-  // 必须有 VALUES 或 SELECT
-  if (!/\bVALUES\b/.test(sql) && !/\bSELECT\b/.test(sql)) {
-    return { valid: false, error: 'INSERT statement must have VALUES or SELECT clause' }
-  }
-
-  // 如果有 VALUES，检查括号
-  if (/\bVALUES\b/.test(sql)) {
-    if (!/VALUES\s*\(/.test(sql)) {
-      return { valid: false, error: 'VALUES must be followed by parentheses' }
-    }
-  }
-
-  return { valid: true }
-}
-
-/**
- * 验证 UPDATE 语句
- */
-function validateUpdateStatement(sql: string): { valid: boolean; error?: string } {
-  // UPDATE 必须跟表名
-  if (!/UPDATE\s+\S+/.test(sql)) {
-    return { valid: false, error: 'UPDATE must specify a table name' }
-  }
-
-  // 必须有 SET 子句
-  if (!/\bSET\b/.test(sql)) {
-    return { valid: false, error: 'UPDATE statement must have SET clause' }
-  }
-
-  // SET 后必须有赋值
-  if (!/SET\s+\S+\s*=/.test(sql)) {
-    return { valid: false, error: 'SET clause must have column assignments' }
-  }
-
-  return { valid: true }
-}
-
-/**
- * 验证 DELETE 语句
- */
-function validateDeleteStatement(sql: string): { valid: boolean; error?: string } {
-  // DELETE FROM 必须跟表名
-  if (!/DELETE\s+FROM\s+\S+/.test(sql)) {
-    return { valid: false, error: 'DELETE FROM must specify a table name' }
-  }
-
-  return { valid: true }
-}
-
-/**
- * 验证 DDL 语句 (CREATE/ALTER/DROP)
- */
-function validateDdlStatement(sql: string, type: string): { valid: boolean; error?: string } {
-  // CREATE/ALTER/DROP 后必须跟对象类型
-  const pattern = new RegExp(`${type}\\s+(TABLE|DATABASE|INDEX|VIEW|SCHEMA|PROCEDURE|FUNCTION)\\s+\\S+`)
-  if (!pattern.test(sql)) {
-    return { valid: false, error: `${type} must specify object type and name` }
-  }
-
-  return { valid: true }
+  const remainingContent = afterValuesKeyword.slice(remainingStartIndex)
+  
+  return beforeValues.trimEnd() + '\n' + formattedValuesSection + remainingContent
 }
 
 /**
  * 格式化 SQL 字符串
+ * 使用 sql-formatter 进行格式化
  */
 export const formatSql = (
   sqlString: string,
   options?: SqlFormatOptions
 ): string => {
   try {
+    const dialect = options?.dialect || 'sql'
     const tabWidth = options?.tabWidth || 2
     const keywordCase = options?.keywordCase || 'upper'
-    const indent = ' '.repeat(tabWidth)
-    
-    // 移除多余的空白字符
-    let sql = sqlString.trim()
-    
-    // 保护字符串字面量和注释
-    const protectedItems: { type: string; value: string }[] = []
-    
-    // 保护字符串
-    sql = sql.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, (match) => {
-      protectedItems.push({ type: 'string', value: match })
-      return `__PROTECTED_${protectedItems.length - 1}__`
-    })
-    
-    // 保护单行注释
-    sql = sql.replace(/--[^\n]*/g, (match) => {
-      protectedItems.push({ type: 'comment', value: match })
-      return `__PROTECTED_${protectedItems.length - 1}__`
-    })
-    
-    // 保护多行注释
-    sql = sql.replace(/\/\*[\s\S]*?\*\//g, (match) => {
-      protectedItems.push({ type: 'comment', value: match })
-      return `__PROTECTED_${protectedItems.length - 1}__`
-    })
-    
-    // 预处理：规范化换行符（在保护字符串和注释之后）
-    // 将所有换行符替换为空格，确保格式化结果不受原始输入换行的影响
-    // 字符串和注释已被保护，所以它们内部的换行不会被影响
-    sql = sql.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ')
-    
-    // 规范化空格：在逗号、操作符等周围添加适当的空格
-    sql = sql
-      // 逗号后添加空格（如果后面不是空格）
-      .replace(/,(?!\s)/g, ', ')
-      // AS 关键字前后添加空格
-      .replace(/\s*\bAS\b\s*/gi, ' AS ')
-      // OVER 关键字前后添加空格
-      .replace(/\s*\bOVER\b\s*/gi, ' OVER ')
-      // DESC/ASC 关键字前后添加空格
-      .replace(/\s*\b(DESC|ASC)\b\s*/gi, ' $1 ')
-      // 操作符周围添加空格
-      .replace(/\s*([<>=!]+)\s*/g, ' $1 ')
-      // ON 关键字前后添加空格
-      .replace(/\s*\bON\b\s*/gi, ' ON ')
-      // 括号前后的空格处理：)和字母/关键字之间加空格
-      .replace(/\)([A-Z])/gi, ') $1')
-      // 清理多余的空格（但保留换行符）
-      .replace(/[ \t]+/g, ' ')
-      // 清理行尾空格
-      .replace(/ +$/gm, '')
-      // 清理行首空格（保留缩进会在后面处理）
-      .replace(/^ +/gm, '')
-    
-    // 统一关键字大小写
-    if (keywordCase === 'upper') {
-      SQL_KEYWORDS.forEach(keyword => {
-        const regex = new RegExp(`\\b${keyword}\\b`, 'gi')
-        sql = sql.replace(regex, keyword.toUpperCase())
-      })
-    } else if (keywordCase === 'lower') {
-      SQL_KEYWORDS.forEach(keyword => {
-        const regex = new RegExp(`\\b${keyword}\\b`, 'gi')
-        sql = sql.replace(regex, keyword.toLowerCase())
-      })
+    const useTabs = options?.useTabs || false
+    const linesBetweenQueries = options?.linesBetweenQueries || 1
+
+    // 将我们的方言映射到 sql-formatter 支持的语言
+    const languageMap: Record<string, string> = {
+      'sql': 'sql',
+      'mysql': 'mysql',
+      'postgresql': 'postgresql',
+      'sqlite': 'sqlite',
+      'plsql': 'plsql',
+      'tsql': 'tsql'
     }
-    
-    // 在主要子句前添加换行
-    const clauseKeywords = [
-      'WITH', 'SELECT', 'FROM', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', 'OFFSET',
-      'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'CROSS JOIN', 'OUTER JOIN', 'JOIN',
-      'UNION', 'UNION ALL', 'INTERSECT', 'EXCEPT',
-      'INSERT INTO', 'UPDATE', 'DELETE FROM',
-      'CREATE', 'ALTER', 'DROP'
-    ]
-    
-    // 按长度降序排序，确保先匹配长的短语（重要：LEFT JOIN 要在 JOIN 之前处理）
-    clauseKeywords.sort((a, b) => b.length - a.length)
-    
-    // 特殊处理 WITH...AS 语句，使 CTE 名称缩进
-    sql = sql.replace(
-      /\b(WITH)\s+(\w+)\s+(AS)\s*\(/gi,
-      (match, withKeyword, cteName, asKeyword) => {
-        const w = keywordCase === 'upper' ? 'WITH' : 'with'
-        const a = keywordCase === 'upper' ? 'AS' : 'as'
-        return `${w}\n${indent}${cteName} ${a} (`
-      }
-    )
-    
-    // 后处理：为 CTE 内容添加额外缩进
-    const addCteIndentation = (text: string): string => {
-      const lines = text.split('\n')
-      const result: string[] = []
-      let inCte = false
-      let cteDepth = 0
-      let parenCount = 0
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        const trimmed = line.trim()
-        
-        // 检测 CTE 开始
-        if (/^\s*\w+\s+AS\s*\(/.test(line)) {
-          inCte = true
-          cteDepth = 1
-          parenCount = 1
-          result.push(indent + line.trim())  // CTE 名称行缩进 2 spaces
-          continue
-        }
-        
-        if (inCte) {
-          // 追踪括号深度（需要忽略字符串中的括号）
-          let inString = false
-          let stringChar = ''
-          for (const char of trimmed) {
-            if ((char === '"' || char === "'") && !inString) {
-              inString = true
-              stringChar = char
-            } else if (char === stringChar && inString) {
-              inString = false
-            } else if (!inString) {
-              if (char === '(') parenCount++
-              else if (char === ')') parenCount--
-            }
-          }
-          
-          // CTE 结束
-          if (parenCount === 0) {
-            inCte = false
-            // 闭括号单独一行，缩进 2 spaces
-            result.push(indent + ')')
-          } else {
-            // CTE 内部内容，添加额外缩进
-            if (trimmed) {
-              result.push(indent + line)
-            } else {
-              result.push('')
-            }
-          }
-        } else {
-          result.push(line)
-        }
-      }
-      
-      return result.join('\n')
-    }
-    
-    // 保护复合关键字，防止被拆分
-    const keywordPlaceholders: { placeholder: string; original: string }[] = []
-    clauseKeywords.forEach((clause, index) => {
-      if (clause.includes(' ')) {
-        const casedClause = keywordCase === 'upper' ? clause : clause.toLowerCase()
-        const regex = new RegExp(`\\b${clause}\\b`, 'gi')
-        const placeholder = `__KEYWORD_${index}__`
-        sql = sql.replace(regex, placeholder)
-        keywordPlaceholders.push({ placeholder, original: casedClause })
-      }
+
+    const language = languageMap[dialect] || 'sql'
+
+    // 使用 sql-formatter 进行格式化
+    let formatted = format(sqlString, {
+      language: language as any,
+      tabWidth,
+      keywordCase,
+      useTabs,
+      linesBetweenQueries,
+      // 其他默认配置
+      indentStyle: 'standard',
     })
-    
-    // 然后处理单个关键字
-    clauseKeywords.forEach(clause => {
-      if (!clause.includes(' ') && clause !== 'WITH') {  // WITH 已经特殊处理
-        const casedClause = keywordCase === 'upper' ? clause : clause.toLowerCase()
-        const regex = new RegExp(`\\b${clause}\\b`, 'gi')
-        sql = sql.replace(regex, `\n${casedClause}`)
-      }
-    })
-    
-    // 恢复复合关键字并添加换行
-    keywordPlaceholders.forEach(({ placeholder, original }) => {
-      sql = sql.replace(new RegExp(placeholder, 'g'), `\n${original}`)
-    })
-    
-    // 处理 OVER 窗口函数：使括号内的内容换行并缩进
-    // 使用更智能的括号匹配
-    const processOverClauses = (text: string): string => {
-      let result = text
-      const overRegex = /\b(\w+)\s+OVER\s*\(/gi
-      let match
-      
-      while ((match = overRegex.exec(result)) !== null) {
-        const functionName = match[1]
-        const startPos = match.index + match[0].length
-        
-        // 找到匹配的右括号
-        let parenCount = 1
-        let endPos = startPos
-        
-        while (parenCount > 0 && endPos < result.length) {
-          if (result[endPos] === '(') parenCount++
-          else if (result[endPos] === ')') parenCount--
-          endPos++
-        }
-        
-        if (parenCount === 0) {
-          const overContent = result.substring(startPos, endPos - 1).trim()
-          const overKeyword = keywordCase === 'upper' ? 'OVER' : 'over'
-          
-          // 检查 OVER 内容是否包含 ORDER BY 或 PARTITION BY
-          const hasOrderBy = /\bORDER\s+BY\b/i.test(overContent)
-          const hasPartitionBy = /\bPARTITION\s+BY\b/i.test(overContent)
-          
-          if (hasOrderBy || hasPartitionBy) {
-            let formatted = overContent
-            
-            // 在 ORDER BY 前换行，并在 ORDER BY 后的内容前也换行
-            if (hasOrderBy) {
-              const orderKeyword = keywordCase === 'upper' ? 'ORDER BY' : 'order by'
-              formatted = formatted.replace(
-                /\bORDER\s+BY\s+(.+)/gi,
-                (_, orderContent) => {
-                  return `\n${indent}${orderKeyword}\n${indent}${indent}${orderContent.trim()}`
-                }
-              )
-            }
-            
-            // 在 PARTITION BY 前换行，并在 PARTITION BY 后的内容前也换行
-            if (hasPartitionBy) {
-              const partitionKeyword = keywordCase === 'upper' ? 'PARTITION BY' : 'partition by'
-              formatted = formatted.replace(
-                /\bPARTITION\s+BY\s+(.+)/gi,
-                (_, partitionContent) => {
-                  return `\n${indent}${partitionKeyword}\n${indent}${indent}${partitionContent.trim()}`
-                }
-              )
-            }
-            
-            const replacement = `${functionName} ${overKeyword} (${formatted}\n${indent})`
-            result = result.substring(0, match.index) + replacement + result.substring(endPos)
-            
-            // 重置正则表达式索引
-            overRegex.lastIndex = match.index + replacement.length
-          }
-        }
-      }
-      
-      return result
+
+    // 对 INSERT VALUES 语句进行特殊格式化
+    if (/\bINSERT\s+INTO\b/i.test(formatted) && /\bVALUES\b/i.test(formatted)) {
+      formatted = formatInsertValues(formatted, tabWidth)
     }
-    
-    sql = processOverClauses(sql)
-    
-    // 处理 JOIN...ON：将 ON 子句内容与 JOIN 在同一行
-    sql = sql.replace(
-      /\b((?:INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+|OUTER\s+)?JOIN\s+[^\n]+?)\s+ON\s+(.+?)(?=\n|$)/gi,
-      (match, joinPart, onCondition) => {
-        const onKeyword = keywordCase === 'upper' ? 'ON' : 'on'
-        return `${joinPart} ${onKeyword} ${onCondition.trim()}`
-      }
-    )
-    
-    // 处理 WHERE 子句：将条件内容换行（只处理第一个条件，不包含 AND/OR）
-    sql = sql.replace(
-      /\b(WHERE)\s+([^\n]+?)(?=\s+AND\b|\s+OR\b|\n|$)/gis,
-      (match, whereKeyword, condition) => {
-        const keyword = keywordCase === 'upper' ? 'WHERE' : 'where'
-        const trimmedCondition = condition.trim()
-        return `${keyword}\n${indent}${trimmedCondition}`
-      }
-    )
-    
-    // 处理 HAVING 子句：将条件内容换行
-    sql = sql.replace(
-      /\b(HAVING)\s+(?!\n)(.+?)(?=\n|$)/gis,
-      (match, havingKeyword, condition) => {
-        const keyword = keywordCase === 'upper' ? 'HAVING' : 'having'
-        return `${keyword}\n${indent}${condition.trim()}`
-      }
-    )
-    
-    // 处理 ORDER BY 子句：将排序字段换行（如果不包含逗号分隔的多字段）
-    sql = sql.replace(
-      /\b(ORDER BY)\s+(?!\n)([^,\n]+?)(?=\n|$|;)/gis,
-      (match, orderByKeyword, fields) => {
-        const keyword = keywordCase === 'upper' ? 'ORDER BY' : 'order by'
-        // 检查是否有逗号（多字段会在后面处理）
-        if (!fields.includes(',')) {
-          return `${keyword}\n${indent}${fields.trim()}`
-        }
-        return match
-      }
-    )
-    
-    // 处理 INSERT INTO...VALUES 语句
-    sql = sql.replace(
-      /\b(INSERT\s+INTO)\s+(\w+)\s*\(([^)]+)\)\s*(VALUES)/gis,
-      (match, insertPart, tableName, columns, valuesPart) => {
-        const insertKeyword = keywordCase === 'upper' ? 'INSERT INTO' : 'insert into'
-        const valuesKeyword = keywordCase === 'upper' ? 'VALUES' : 'values'
-        
-        // 分割列名
-        const columnList = columns.split(',').map((col: string) => col.trim())
-        
-        let result = `${insertKeyword} ${tableName}\n  (`
-        result += columnList.join(',\n   ')
-        result += `)\n${valuesKeyword}`
-        
-        return result
-      }
-    )
-    
-    // 处理 VALUES 后的值列表（可能有多行）
-    sql = sql.replace(
-      /\b(VALUES)\s*\n?\s*\(([^)]+)\)/gis,
-      (match, valuesPart, firstValue) => {
-        const valuesKeyword = keywordCase === 'upper' ? 'VALUES' : 'values'
-        // 分割第一组值
-        const valueList = firstValue.split(/,\s*(?=(?:[^']*'[^']*')*[^']*$)/).map((val: string) => val.trim())
-        
-        let result = `${valuesKeyword}\n  (`
-        result += valueList.join(',\n   ')
-        result += ')'
-        
-        return result
-      }
-    )
-    
-    // 处理 UPDATE...SET 语句
-    sql = sql.replace(
-      /\b(UPDATE\s+)(\w+)\s+(SET)\s+([^\n]+?)(?=\n(?:WHERE)|$|;)/gis,
-      (match, updatePart, tableName, setPart, setContent) => {
-        const updateKeyword = keywordCase === 'upper' ? 'UPDATE' : 'update'
-        const setKeyword = keywordCase === 'upper' ? 'SET' : 'set'
-        
-        // 分割 SET 子句的赋值
-        const assignments = setContent.split(/,\s*(?![^()]*\))/).map((s: string) => s.trim())
-        
-        let result = `${updateKeyword} ${tableName}\n${setKeyword}`
-        assignments.forEach((assignment: string, idx: number) => {
-          result += `\n${indent}${assignment}`
-          if (idx < assignments.length - 1) {
-            result += ','
-          }
-        })
-        
-        return result
-      }
-    )
-    
-    // 在 AND/OR 前添加换行和缩进
-    const logicalOps = ['AND', 'OR']
-    logicalOps.forEach(op => {
-      const casedOp = keywordCase === 'upper' ? op : op.toLowerCase()
-      const regex = new RegExp(`\\b${op}\\b`, 'gi')
-      sql = sql.replace(regex, `\n${indent}${casedOp}`)
-    })
-    
-    // 处理 SELECT 字段：在逗号后换行（但要排除括号内的逗号）
-    const clauseLines = sql.split('\n')
-    const processedLines: string[] = []
-    
-    // 通用函数：分割字段（排除括号内的逗号）
-    const splitFields = (fieldsPart: string): string[] => {
-      const fields: string[] = []
-      let currentField = ''
-      let parenDepth = 0
-      
-      for (let j = 0; j < fieldsPart.length; j++) {
-        const char = fieldsPart[j]
-        
-        if (char === '(') {
-          parenDepth++
-          currentField += char
-        } else if (char === ')') {
-          parenDepth--
-          currentField += char
-        } else if (char === ',' && parenDepth === 0) {
-          // 在括号外的逗号处分割
-          fields.push(currentField.trim())
-          currentField = ''
-        } else {
-          currentField += char
-        }
-      }
-      
-      // 添加最后一个字段
-      if (currentField.trim()) {
-        fields.push(currentField.trim())
-      }
-      
-      return fields
-    }
-    
-    // 格式化 CASE WHEN 语句
-    const formatCaseWhen = (field: string): string[] => {
-      // 检查是否包含 CASE WHEN
-      if (!/\bCASE\b/i.test(field)) {
-        return [field]
-      }
-      
-      const lines: string[] = []
-      
-      // 保护字符串字面量
-      const stringLiterals: string[] = []
-      let protectedField = field.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, (match) => {
-        const index = stringLiterals.length
-        stringLiterals.push(match)
-        return `__STRING_${index}__`
-      })
-      
-      // 使用正则匹配并格式化 CASE WHEN 结构
-      // 匹配 CASE...END 块
-      const caseRegex = /\b(CASE)\b([\s\S]*?)\b(END)\b/gi
-      
-      let lastIndex = 0
-      let match
-      
-      while ((match = caseRegex.exec(protectedField)) !== null) {
-        // CASE 之前的内容
-        if (match.index > lastIndex) {
-          const before = protectedField.substring(lastIndex, match.index).trim()
-          if (before) {
-            lines.push(before)
-          }
-        }
-        
-        // 处理 CASE 块 - CASE 单独一行
-        lines.push('CASE')
-        
-        const caseBody = match[2]
-        
-        // 分割 WHEN、ELSE 子句
-        const parts = caseBody.split(/\b(WHEN|ELSE)\b/gi)
-        
-        for (let i = 0; i < parts.length; i++) {
-          const part = parts[i].trim()
-          
-          if (!part) continue
-          
-          if (/^WHEN$/i.test(part)) {
-            // WHEN 关键字 - 缩进 2 spaces
-            const condition = parts[++i]?.trim() || ''
-            // 提取条件和 THEN 之后的值
-            const thenMatch = condition.match(/^(.*?)\s+THEN\s+(.*)$/i)
-            if (thenMatch) {
-              const whenKeyword = keywordCase === 'upper' ? 'WHEN' : 'when'
-              const thenKeyword = keywordCase === 'upper' ? 'THEN' : 'then'
-              lines.push(indent + whenKeyword + ' ' + thenMatch[1].trim() + ' ' + thenKeyword + ' ' + thenMatch[2].trim())
-            } else {
-              const whenKeyword = keywordCase === 'upper' ? 'WHEN' : 'when'
-              lines.push(indent + whenKeyword + ' ' + condition)
-            }
-          } else if (/^ELSE$/i.test(part)) {
-            // ELSE 关键字 - 缩进 2 spaces
-            const value = parts[++i]?.trim() || ''
-            const elseKeyword = keywordCase === 'upper' ? 'ELSE' : 'else'
-            lines.push(indent + elseKeyword + ' ' + value)
-          }
-        }
-        
-        // END 对齐 CASE，不缩进
-        lines.push('END')
-        
-        lastIndex = caseRegex.lastIndex
-      }
-      
-      // CASE 之后的内容
-      if (lastIndex < protectedField.length) {
-        const after = protectedField.substring(lastIndex).trim()
-        if (after) {
-          lines[lines.length - 1] += ' ' + after
-        }
-      }
-      
-      // 恢复字符串字面量
-      const restoredLines = lines.map(line => {
-        return line.replace(/__STRING_(\d+)__/g, (_, index) => stringLiterals[parseInt(index)])
-      })
-      
-      return restoredLines
-    }
-    
-    for (let i = 0; i < clauseLines.length; i++) {
-      const line = clauseLines[i].trim()
-      
-      // 检查是否是 SELECT 行
-      if (/^SELECT\b/i.test(line)) {
-        const match = line.match(/^(SELECT\s+(?:DISTINCT\s+)?)(.*)/i)
-        if (match) {
-          const selectPart = match[1].trim()
-          const fieldsPart = match[2]
-          const fields = splitFields(fieldsPart)
-          
-          // 总是换行和缩进字段，不管字段数量
-          processedLines.push(selectPart)
-          fields.forEach((field, idx) => {
-            const isLast = idx === fields.length - 1
-            
-            // 检查字段是否包含 CASE WHEN
-            if (/\bCASE\b/i.test(field)) {
-              const caseLines = formatCaseWhen(field)
-              caseLines.forEach((caseLine, caseIdx) => {
-                if (caseIdx === 0) {
-                  // 第一行：添加缩进 2 spaces
-                  processedLines.push(indent + caseLine)
-                } else if (caseIdx === caseLines.length - 1) {
-                  // 最后一行：END，添加逗号（如果不是最后一个字段）
-                  processedLines.push(indent + caseLine + (isLast ? '' : ','))
-                } else {
-                  // 中间行：已经在 formatCaseWhen 中处理了缩进
-                  processedLines.push(indent + caseLine)
-                }
-              })
-            } else {
-              // 普通字段 - 缩进 2 spaces
-              if (isLast) {
-                processedLines.push(indent + field)
-              } else {
-                processedLines.push(indent + field + ',')
-              }
-            }
-          })
-        } else {
-          processedLines.push(line)
-        }
-      }
-      // 检查是否是 FROM 行 - 需要处理表名和 JOIN
-      else if (/^FROM\b/i.test(line)) {
-        const match = line.match(/^(FROM\s+)(.*)/i)
-        if (match) {
-          const fromPart = match[1].trim()
-          const tablePart = match[2].trim()
-          
-          // FROM 单独一行
-          processedLines.push(fromPart)
-          
-          // 表名缩进 2 spaces
-          processedLines.push(indent + tablePart)
-        } else {
-          processedLines.push(line)
-        }
-      }
-      // 检查是否是 JOIN 行
-      else if (/^(INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN|OUTER\s+JOIN|JOIN)\b/i.test(line)) {
-        // JOIN 缩进 2 spaces
-        processedLines.push(indent + line)
-      }
-      // 检查是否是 GROUP BY 行
-      else if (/^GROUP BY\b/i.test(line)) {
-        const match = line.match(/^(GROUP BY\s+)(.*)/i)
-        if (match) {
-          const groupByPart = match[1].trim()
-          const fieldsPart = match[2]
-          const fields = splitFields(fieldsPart)
-          
-          if (fields.length > 1) {
-            processedLines.push(groupByPart)
-            fields.forEach((field, idx) => {
-              if (idx === fields.length - 1) {
-                processedLines.push(indent + field)
-              } else {
-                processedLines.push(indent + field + ',')
-              }
-            })
-          } else {
-            processedLines.push(line)
-          }
-        } else {
-          processedLines.push(line)
-        }
-      }
-      // 检查是否是 ORDER BY 行
-      else if (/^ORDER BY\b/i.test(line)) {
-        const match = line.match(/^(ORDER BY\s+)(.*)/i)
-        if (match) {
-          const orderByPart = match[1].trim()
-          const fieldsPart = match[2]
-          const fields = splitFields(fieldsPart)
-          
-          if (fields.length > 1) {
-            processedLines.push(orderByPart)
-            fields.forEach((field, idx) => {
-              if (idx === fields.length - 1) {
-                processedLines.push(indent + field)
-              } else {
-                processedLines.push(indent + field + ',')
-              }
-            })
-          } else {
-            processedLines.push(line)
-          }
-        } else {
-          processedLines.push(line)
-        }
-      }
-      else {
-        processedLines.push(line)
-      }
-    }
-    
-    sql = processedLines.join('\n')
-    
-    // 清理多余的空白（保留有意义的缩进）
-    sql = sql
-      .split('\n')
-      .filter(line => line.trim().length > 0)  // 只过滤完全空白的行
-      .join('\n')
-    
-    // 恢复保护的内容
-    protectedItems.forEach((item, index) => {
-      sql = sql.replace(`__PROTECTED_${index}__`, item.value)
-    })
-    
-    // 添加基本缩进（优化版）
-    const finalLines = sql.split('\n')
-    const formatted: string[] = []
-    
-    for (let i = 0; i < finalLines.length; i++) {
-      const line = finalLines[i]
-      const trimmed = line.trim()
-      
-      // 检查行是否已经有缩进（来自 SELECT、GROUP BY、ORDER BY 等的字段处理）
-      const hasIndent = line.startsWith(' ') || line.startsWith('\t')
-      
-      // 如果已经有缩进，保持原样
-      if (hasIndent) {
-        formatted.push(line)
-        continue
-      }
-      
-      // 检查是否是主子句
-      const isMainClause = clauseKeywords.some(clause => {
-        const regex = new RegExp(`^${clause}\\b`, 'i')
-        return regex.test(trimmed)
-      })
-      
-      if (isMainClause) {
-        // 主子句不缩进
-        formatted.push(trimmed)
-        continue
-      }
-      
-      // 检查上一个主子句是什么（用于决定是否需要缩进）
-      let lastMainClause = ''
-      for (let j = i - 1; j >= 0; j--) {
-        const prevLine = finalLines[j].trim()
-        const foundClause = clauseKeywords.find(clause => {
-          const regex = new RegExp(`^${clause}\\b`, 'i')
-          return regex.test(prevLine)
-        })
-        if (foundClause) {
-          lastMainClause = foundClause
-          break
-        }
-      }
-      
-      // 需要缩进的情况：
-      // 1. AND/OR 逻辑运算符（已经在前面处理过，这里保持）
-      // 2. WHERE 子句的条件内容（第一行）
-      // 3. HAVING 子句的条件内容（第一行）
-      // 4. JOIN...ON 子句的 ON 条件内容
-      // 5. ORDER BY 的字段列表（不包括已经处理过的多字段情况）
-      
-      if (/^(AND|OR)\b/i.test(trimmed)) {
-        // AND/OR 已经有缩进标记，保持缩进
-        formatted.push(indent + trimmed)
-      } else if (
-        lastMainClause.match(/^(WHERE|HAVING)$/i) ||
-        lastMainClause.match(/JOIN$/i) ||
-        lastMainClause.match(/^ORDER BY$/i)
-      ) {
-        // WHERE、HAVING、JOIN ON、ORDER BY 子句的内容需要缩进
-        formatted.push(indent + trimmed)
-      } else {
-        // 其他情况保持原样
-        formatted.push(trimmed)
-      }
-    }
-    
-    let result = formatted.join('\n')
-    
-    // 应用 CTE 缩进处理
-    result = addCteIndentation(result)
-    
-    return result
+
+    return formatted
   } catch (error) {
-    throw new Error(
-      `SQL 格式化失败: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    // 如果格式化失败，返回原始字符串
+    console.error('SQL formatting error:', error)
+    return sqlString
   }
 }
 
 /**
- * 压缩 SQL 字符串（移除多余空格和换行）
+ * 压缩 SQL（移除多余空格和换行）
  */
 export const compressSql = (sqlString: string): string => {
   try {
-    // 移除注释
-    let result = sqlString
-      // 移除单行注释 --
-      .replace(/--[^\n]*/g, '')
-      // 移除多行注释 /* */
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-    
     // 保护字符串字面量
-    const strings: string[] = []
-    result = result.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, (match) => {
-      strings.push(match)
-      return `__STRING_${strings.length - 1}__`
+    const protectedStrings: string[] = []
+    let sql = sqlString.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, (match) => {
+      protectedStrings.push(match)
+      return `__STR_${protectedStrings.length - 1}__`
     })
-    
+
+    // 移除注释
+    sql = sql
+      .replace(/--[^\n]*/g, '') // 单行注释
+      .replace(/\/\*[\s\S]*?\*\//g, '') // 多行注释
+
     // 压缩空白字符
-    result = result
-      .replace(/\s+/g, ' ')  // 多个空白字符替换为单个空格
-      .replace(/\s*([,;])\s*/g, '$1')  // 移除逗号、分号周围的空格
-      .replace(/\(\s+/g, '(')  // 移除左括号后的空格
-      .replace(/\s+\)/g, ')')  // 移除右括号前的空格
+    sql = sql
+      .replace(/\s+/g, ' ') // 将所有空白字符替换为单个空格
       .trim()
-    
+
     // 恢复字符串字面量
-    strings.forEach((str, index) => {
-      result = result.replace(`__STRING_${index}__`, str)
+    protectedStrings.forEach((str, index) => {
+      sql = sql.replace(`__STR_${index}__`, str)
     })
-    
-    return result
+
+    return sql
   } catch (error) {
-    throw new Error(
-      `SQL 压缩失败: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+    console.error('SQL compression error:', error)
+    return sqlString
   }
+}
+
+/**
+ * 解析 INSERT VALUES 子句，将每个值元组作为独立的可折叠项
+ */
+const parseInsertValues = (content: string, baseIndex: number): SqlClause[] => {
+  const clauses: SqlClause[] = []
+  
+  // 匹配 VALUES 关键字
+  const valuesMatch = content.match(/^(.*?\bVALUES\b)/is)
+  if (!valuesMatch) return []
+  
+  const valuesKeyword = valuesMatch[1].trim()
+  
+  // 添加 VALUES 关键字作为一个不可折叠子句
+  clauses.push({
+    type: 'VALUES' as SqlClause['type'],
+    content: valuesKeyword,
+    raw: valuesKeyword,
+    collapsible: false,
+    path: `clause-${baseIndex}`,
+  })
+  
+  // 获取 VALUES 后的内容
+  const afterValues = content.slice(valuesMatch[1].length).trim()
+  
+  // 解析每个值元组 (...)
+  let remaining = afterValues
+  let valueIndex = 0
+  let depth = 0
+  let currentValue = ''
+  let inString = false
+  let stringChar = ''
+  let tupleStart = -1  // 记录当前元组的起始位置
+  
+  for (let i = 0; i < remaining.length; i++) {
+    const char = remaining[i]
+    const prevChar = i > 0 ? remaining[i - 1] : ''
+    
+    // 处理字符串
+    if ((char === "'" || char === '"') && prevChar !== '\\') {
+      if (!inString) {
+        inString = true
+        stringChar = char
+      } else if (char === stringChar) {
+        inString = false
+      }
+    }
+    
+    if (!inString) {
+      if (char === '(' && depth === 0) {
+        // 开始一个新的元组
+        tupleStart = i
+        depth++
+        currentValue = char
+      } else if (char === '(') {
+        depth++
+        currentValue += char
+      } else if (char === ')') {
+        currentValue += char
+        depth--
+        if (depth === 0) {
+          // 完成一个值元组，继续查找后面的逗号或分号
+          let j = i + 1
+          let punctuation = ''
+          while (j < remaining.length) {
+            const nextChar = remaining[j]
+            if (nextChar === ',' || nextChar === ';') {
+              punctuation = nextChar
+              break
+            } else if (!/\s/.test(nextChar)) {
+              // 遇到非空白非标点字符，停止
+              break
+            }
+            j++
+          }
+          
+          const trimmedValue = currentValue.trim()
+          if (trimmedValue) {
+            clauses.push({
+              type: 'VALUE_TUPLE' as SqlClause['type'],
+              content: trimmedValue + punctuation,
+              raw: trimmedValue + punctuation,
+              collapsible: true,
+              path: `clause-${baseIndex}-value-${valueIndex}`,
+            })
+            valueIndex++
+          }
+          currentValue = ''
+          tupleStart = -1
+          
+          // 跳过已处理的标点符号
+          if (punctuation) {
+            i = j
+          }
+        }
+      } else if (depth > 0) {
+        // 在元组内部，收集所有字符
+        currentValue += char
+      }
+      // depth === 0 时，忽略逗号和空格等分隔符
+    } else {
+      // 在字符串内部
+      if (depth > 0) {
+        currentValue += char
+      }
+    }
+  }
+  
+  return clauses
 }
 
 /**
  * 解析 SQL 为子句结构
+ * 使用 sql-formatter 格式化后进行解析
  */
 export const parseSqlClauses = (sqlString: string): ParsedSql => {
   const clauses: SqlClause[] = []
@@ -1074,11 +480,19 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
       let isNewClause = false
       let clauseType: SqlClause['type'] = 'UNKNOWN'
       
-      for (const majorClause of MAJOR_CLAUSES) {
+      // 按长度降序排序，确保先匹配更长的短语
+      const sortedClauses = [...MAJOR_CLAUSES].sort((a, b) => b.length - a.length)
+      
+      for (const majorClause of sortedClauses) {
         const regex = new RegExp(`^${majorClause}\\b`, 'i')
         if (regex.test(trimmedLine)) {
           isNewClause = true
-          clauseType = majorClause.replace(/ /g, ' ') as SqlClause['type']
+          // 处理特殊的多词子句类型
+          if (majorClause.includes(' ')) {
+            clauseType = majorClause.toUpperCase() as SqlClause['type']
+          } else {
+            clauseType = majorClause.toUpperCase() as SqlClause['type']
+          }
           break
         }
       }
@@ -1086,9 +500,34 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
       if (isNewClause) {
         // 保存之前的子句
         if (currentClause && currentContent.length > 0) {
-          currentClause.content = currentContent.join('\n')
-          currentClause.raw = currentContent.join('\n')
-          clauses.push(currentClause)
+          const clauseContent = currentContent.join('\n')
+          currentClause.content = clauseContent
+          currentClause.raw = clauseContent
+          
+          // 检查是否是 INSERT INTO 子句，如果是则需要特殊处理 VALUES
+          if (currentClause.type === 'INSERT INTO' && /\bVALUES\b/i.test(clauseContent)) {
+            // 分离 INSERT INTO 部分和 VALUES 部分
+            const insertMatch = clauseContent.match(/^(.*?\bINSERT\s+INTO\s+[^(]+\s*\([^)]+\))/is)
+            if (insertMatch) {
+              // 添加 INSERT INTO 子句
+              clauses.push({
+                type: 'INSERT INTO',
+                content: insertMatch[1].trim(),
+                raw: insertMatch[1].trim(),
+                collapsible: true,
+                path: `clause-${clauses.length}`,
+              })
+              
+              // 解析 VALUES 部分
+              const valuesContent = clauseContent.slice(insertMatch[1].length).trim()
+              const valueClauses = parseInsertValues(valuesContent, clauses.length)
+              clauses.push(...valueClauses)
+            } else {
+              clauses.push(currentClause)
+            }
+          } else {
+            clauses.push(currentClause)
+          }
         }
         
         // 如果有待处理的注释，将其作为独立的不可折叠子句添加
@@ -1103,7 +542,7 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
           pendingComments = []
         }
         
-        // 开始新的子句（不包含之前的注释）
+        // 开始新的子句
         currentContent = [line]
         currentClause = {
           type: clauseType,
@@ -1131,9 +570,34 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
     
     // 保存最后一个子句
     if (currentClause && currentContent.length > 0) {
-      currentClause.content = currentContent.join('\n')
-      currentClause.raw = currentContent.join('\n')
-      clauses.push(currentClause)
+      const clauseContent = currentContent.join('\n')
+      currentClause.content = clauseContent
+      currentClause.raw = clauseContent
+      
+      // 检查是否是 INSERT INTO 子句，如果是则需要特殊处理 VALUES
+      if (currentClause.type === 'INSERT INTO' && /\bVALUES\b/i.test(clauseContent)) {
+        // 分离 INSERT INTO 部分和 VALUES 部分
+        const insertMatch = clauseContent.match(/^(.*?\bINSERT\s+INTO\s+[^(]+\s*\([^)]+\))/is)
+        if (insertMatch) {
+          // 添加 INSERT INTO 子句
+          clauses.push({
+            type: 'INSERT INTO',
+            content: insertMatch[1].trim(),
+            raw: insertMatch[1].trim(),
+            collapsible: true,
+            path: `clause-${clauses.length}`,
+          })
+          
+          // 解析 VALUES 部分
+          const valuesContent = clauseContent.slice(insertMatch[1].length).trim()
+          const valueClauses = parseInsertValues(valuesContent, clauses.length)
+          clauses.push(...valueClauses)
+        } else {
+          clauses.push(currentClause)
+        }
+      } else {
+        clauses.push(currentClause)
+      }
     }
     
     // 如果还有待处理的注释，添加为独立子句
@@ -1169,13 +633,16 @@ export const parseSqlClauses = (sqlString: string): ParsedSql => {
 }
 
 /**
- * 高亮 SQL 语法（返回带有标记的 token 数组）
+ * SQL 语法 Token 类型
  */
 export interface SqlToken {
   type: 'keyword' | 'function' | 'string' | 'number' | 'comment' | 'operator' | 'identifier' | 'punctuation' | 'whitespace'
   value: string
 }
 
+/**
+ * 高亮 SQL 语法（返回带有标记的 token 数组）
+ */
 export const tokenizeSql = (sqlString: string): SqlToken[] => {
   const tokens: SqlToken[] = []
   let remaining = sqlString
