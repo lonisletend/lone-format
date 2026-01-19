@@ -3,1034 +3,117 @@ import { ref } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
 import XmlFormat from './components/XmlFormat/index.vue'
 import SqlFormat from './components/SqlFormat/index.vue'
-import type { JsonFormatExposed, ThemeType } from './components/JsonFormat/types'
-import type { XmlFormatExposed, FilterType } from './components/XmlFormat/types'
-import type { SqlFormatExposed, SqlDialect } from './components/SqlFormat/types'
 
-
-// JsonFormat 组件引用
-const jsonFormatRef = ref<JsonFormatExposed>()
-const customJsonFormatRef = ref<JsonFormatExposed>()
-const complexJsonFormatRef = ref<JsonFormatExposed>()
-const filterTestRef = ref<JsonFormatExposed>()
-
-// XmlFormat 组件引用
-const xmlFilterTestRef = ref<XmlFormatExposed>()
-
-// SqlFormat 组件引用
-const sqlFormatRef = ref<SqlFormatExposed>()
-
-// XML Format 测试数据
-const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
-<!-- 这是图书馆的 XML 数据 -->
-<library>
-  <!-- 第一本书：TypeScript -->
-  <book id="1" category="programming">
-    <title lang="en">Learning TypeScript</title>
-    <author>Josh Goldberg</author>
-    <year>2022</year>
-    <price currency="USD">39.99</price>
-    <example><![CDATA[const add = (a, b) => a + b; console.log(add(2, 3)); // 5]]></example>
-  </book>
-  <!-- 第二本书：Vue.js -->
-  <book id="2" category="web">
-    <title lang="en">Vue.js 3 Cookbook</title>
-    <author>Heitor Ramon Ribeiro</author>
-    <year>2023</year>
-    <price currency="USD">44.99</price>
-  </book>
-</library>`)
-
-const xmlTheme = ref<ThemeType>('min-light')
-
-// SQL Format 测试数据
-const sqlExample = ref(`-- Sample SQL Query
-SELECT 
-  u.id,
-  u.username,
-  u.email,
-  COUNT(o.id) as order_count,
-  SUM(o.total_amount) as total_spent
-FROM users u
-LEFT JOIN orders o ON u.id = o.user_id
-WHERE u.created_at >= '2024-01-01'
-  AND u.status = 'active'
-GROUP BY u.id, u.username, u.email
-HAVING COUNT(o.id) > 0
-ORDER BY total_spent DESC
-LIMIT 10;`)
-
-const sqlTheme = ref<ThemeType>('github-light')
-const sqlDialect = ref<SqlDialect>('mysql')
-
-// 主题演示相关
-const themeDemo = ref(`{
-  "name": "🎨 主题演示",
-  "description": "这是一个展示不同主题样式的示例 JSON",
-  "features": [
-    "GitHub Light - 清晰明亮的白色主题",
-    "GitHub Dark - 专业优雅的深色主题", 
-    "Min Light - 极简轻量的明亮主题",
-    "Slack Ochin - 温暖舒适的棕色主题"
-  ],
-  "config": {
-    "theme": "dynamic",
-    "autoSwitch": true,
-    "colors": {
-      "primary": "#0366d6",
-      "secondary": "#586069",
-      "success": "#28a745",
-      "warning": "#ffd33d", 
-      "error": "#d73a49"
-    }
-  },
-  "numbers": {
-    "integer": 42,
-    "float": 3.14159,
-    "scientific": 1.23e-4,
-    "precision": 999999999999999
-  },
-  "boolean": true,
-  "null_value": null,
-  "array": ["item1", "item2", "item3"],
-  "nested": {
-    "level1": {
-      "level2": {
-        "deep": "这是一个深层嵌套的对象"
-      }
-    }
-  }
-}`)
-const selectedTheme = ref<ThemeType>('github-light')
-
-const getThemeDisplayName = (theme: ThemeType): string => {
-  const displayNames = {
-    'github-light': 'GitHub Light',
-    'github-dark': 'GitHub Dark',
-    'min-light': 'Min Light',
-    'slack-ochin': 'Slack Ochin'
-  }
-  return displayNames[theme]
-}
-
-// Filter 测试相关
-const filterType = ref<'jsonpath' | 'js' | ''>('')
-const filterExpression = ref('')
-const filterTestJson = ref('')
-const isSortKeysEnabled = ref(false)
-
-// 操作反馈消息
-const message = ref('')
-const messageType = ref<'success' | 'error' | 'info'>('info')
-
-// 自定义按钮操作 - Custom Control Example 区块
-const handleCustomCopy = async () => {
-  try {
-    await customJsonFormatRef.value?.copyJson()
-    showMessage('自定义 JSON 已复制到剪贴板！', 'success')
-  } catch (error) {
-    showMessage('复制失败', 'error')
-  }
-}
-
-const handleCustomExpandAll = () => {
-  customJsonFormatRef.value?.expandAll()
-  showMessage('自定义控制：已展开所有节点', 'info')
-}
-
-const handleCustomCollapseAll = () => {
-  customJsonFormatRef.value?.collapseAll()
-  showMessage('自定义控制：已折叠所有节点', 'info')
-}
-
-const checkCustomJsonStatus = () => {
-  const isValid = customJsonFormatRef.value?.isValidJson()
-  const errorMsg = customJsonFormatRef.value?.getParseError()
-  if (isValid) {
-    showMessage('自定义 JSON 格式正确', 'success')
-  } else {
-    showMessage(`自定义 JSON 格式错误: ${errorMsg}`, 'error')
-  }
-}
-
-// Complex Nested Structure 区块的操作
-const handleComplexCopy = async () => {
-  try {
-    await complexJsonFormatRef.value?.copyJson()
-    showMessage('复杂 JSON 已复制！', 'success')
-  } catch (error) {
-    showMessage('复制失败', 'error')
-  }
-}
-
-const showMessage = (msg: string, type: 'success' | 'error' | 'info') => {
-  message.value = msg
-  messageType.value = type
-  setTimeout(() => {
-    message.value = ''
-  }, 3000)
-}
-
-// Filter 相关操作
-const applyFilter = () => {
-  if (filterType.value && filterExpression.value.trim()) {
-    const config = {
-      type: filterType.value as 'jsonpath' | 'js',
-      expression: filterExpression.value.trim()
-    }
-
-    // 调用组件的 filter 方法
-    filterTestRef.value?.filter(config)
-
-    showMessage(`已应用 ${filterType.value} 过滤器`, 'info')
-  } else {
-    showMessage('请选择过滤类型并输入表达式', 'error')
-  }
-}
-
-const clearFilter = () => {
-  filterType.value = ''
-  filterExpression.value = ''
-
-  // 调用组件的 clearFilter 方法
-  filterTestRef.value?.clearFilter()
-
-  showMessage('已清除过滤器', 'info')
-}
-
-const loadFilterSampleData = () => {
-  filterTestJson.value = '{"users":[{"id":1,"name":"Alice","age":25,"department":"Engineering","active":true},{"id":2,"name":"Bob","age":30,"department":"Marketing","active":false},{"id":3,"name":"Charlie","age":35,"department":"Engineering","active":true},{"id":4,"name":"Diana","age":28,"department":"Sales","active":true}],"departments":{"Engineering":{"budget":100000,"headCount":15},"Marketing":{"budget":50000,"headCount":8},"Sales":{"budget":75000,"headCount":12}},"company":{"name":"Tech Corp","founded":2010,"revenue":5000000},"vals":[{"val":1.000},{"val":2.400},{"val":6.34500}],"valArray":[1.000,2.400,6.34500],"bigVals":[{"val":123456789012345678901234567890},{"val":123456789012345678901234567895},{"val":123456789012345678901234567898}]}';
-  showMessage('已加载示例数据', 'success')
-}
-
-const getFilterPlaceholder = () => {
-  if (filterType.value === 'jsonpath') {
-    return '例如: $.users[*].name 或 $.departments.Engineering'
-  } else if (filterType.value === 'js') {
-    return '例如: $.users.filter(u => u.age > 30) 或 $.company.name'
-  }
-  return '选择过滤类型后输入表达式'
-}
-
-// Key 排序相关操作
-const toggleSortKeys = () => {
-  if (isSortKeysEnabled.value) {
-    filterTestRef.value?.clearSortKeys()
-    isSortKeysEnabled.value = false
-    showMessage('已清除 Key 排序', 'info')
-  } else {
-    filterTestRef.value?.sortKeys()
-    isSortKeysEnabled.value = true
-    showMessage('已启用 Key 排序（按字母顺序）', 'success')
-  }
-}
-
-// 初始化过滤器测试数据
-loadFilterSampleData()
-
-// XML Filter 测试相关
-const xmlFilterType = ref<FilterType | ''>('')
-const xmlFilterExpression = ref('')
-const xmlFilterTestData = ref(`<?xml version="1.0" encoding="UTF-8"?>
-<library name="Tech Books Library">
-  <book id="1" category="programming">
-    <title lang="en">Learning TypeScript</title>
-    <author>Josh Goldberg</author>
-    <year>2022</year>
-    <price currency="USD">39.99</price>
-    <tags>
-      <tag>TypeScript</tag>
-      <tag>JavaScript</tag>
-      <tag>Web Development</tag>
-    </tags>
-  </book>
-  <book id="2" category="web">
-    <title lang="en">Vue.js 3 Cookbook</title>
-    <author>Heitor Ramon Ribeiro</author>
-    <year>2023</year>
-    <price currency="USD">44.99</price>
-    <tags>
-      <tag>Vue.js</tag>
-      <tag>Frontend</tag>
-      <tag>JavaScript</tag>
-    </tags>
-  </book>
-  <book id="3" category="programming">
-    <title lang="zh">深入理解计算机系统</title>
-    <author>Randal E. Bryant</author>
-    <year>2015</year>
-    <price currency="USD">89.99</price>
-    <tags>
-      <tag>Computer Science</tag>
-      <tag>Systems</tag>
-    </tags>
-  </book>
-  <book id="4" category="database">
-    <title lang="en">Database System Concepts</title>
-    <author>Abraham Silberschatz</author>
-    <year>2019</year>
-    <price currency="USD">79.99</price>
-    <tags>
-      <tag>Database</tag>
-      <tag>SQL</tag>
-    </tags>
-  </book>
-</library>`)
-
-const applyXmlFilter = () => {
-  if (xmlFilterType.value && xmlFilterExpression.value.trim()) {
-    const config = {
-      type: xmlFilterType.value as FilterType,
-      expression: xmlFilterExpression.value.trim()
-    }
-
-    xmlFilterTestRef.value?.filter(config)
-    showMessage(`已应用 ${xmlFilterType.value} 过滤器`, 'info')
-  } else {
-    showMessage('请选择过滤类型并输入表达式', 'error')
-  }
-}
-
-const clearXmlFilter = () => {
-  xmlFilterType.value = ''
-  xmlFilterExpression.value = ''
-  xmlFilterTestRef.value?.clearFilter()
-  showMessage('已清除 XML 过滤器', 'info')
-}
-
-const getXmlFilterPlaceholder = () => {
-  if (xmlFilterType.value === 'xpath') {
-    return '例如: //book[@category="programming"] 或 //book/title'
-  }
-  return '选择过滤类型后输入表达式'
-}
-
-const loadXmlFilterExample = (example: string) => {
-  const examples: Record<string, { type: FilterType; expression: string }> = {
-    'all-books': { type: 'xpath', expression: '//book' },
-    'programming-books': { type: 'xpath', expression: '//book[@category="programming"]' },
-    'book-titles': { type: 'xpath', expression: '//book/title' },
-    'year-filter': { type: 'xpath', expression: '//book[year>2020]' },
-    'first-book': { type: 'xpath', expression: '//book[1]' },
-    'authors': { type: 'xpath', expression: '//author' },
-    'library-name': { type: 'xpath', expression: '/library/@name' }
-  }
-
-  const selected = examples[example]
-  if (selected) {
-    xmlFilterType.value = selected.type
-    xmlFilterExpression.value = selected.expression
-    showMessage(`已加载示例: ${example}`, 'success')
-  }
-}
-
-// SQL 示例加载函数
-const loadSqlExample = (example: string) => {
-  const examples: Record<string, string> = {
-    'select': `-- Simple SELECT query\nSELECT id, username, email, created_at\nFROM users\nWHERE status = 'active'\nORDER BY created_at DESC\nLIMIT 20;`,
-    'join': `-- JOIN query with multiple tables\nSELECT \n  u.id,\n  u.username,\n  u.email,\n  p.title as post_title,\n  p.created_at as post_date,\n  COUNT(c.id) as comment_count\nFROM users u\nINNER JOIN posts p ON u.id = p.user_id\nLEFT JOIN comments c ON p.id = c.post_id\nWHERE u.status = 'active'\n  AND p.published = true\nGROUP BY u.id, u.username, u.email, p.title, p.created_at\nHAVING COUNT(c.id) > 5\nORDER BY comment_count DESC;`,
-    'insert': `-- INSERT statement\nINSERT INTO users (username, email, password, status, created_at)\nVALUES \n  ('john_doe', 'john@example.com', 'hashed_password_123', 'active', NOW()),\n  ('jane_smith', 'jane@example.com', 'hashed_password_456', 'active', NOW()),\n  ('bob_wilson', 'bob@example.com', 'hashed_password_789', 'pending', NOW());`,
-    'update': `-- UPDATE statement with conditions 
-UPDATE users SET status = 'inactive', updated_at = NOW (), last_login = NULL WHERE last_login < DATE_SUB (NOW (), INTERVAL 6 MONTH) AND status = 'active';`,
-    'create': `-- CREATE TABLE statement 
-CREATE TABLE IF NOT EXISTS orders ( id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, user_id BIGINT UNSIGNED NOT NULL, order_number VARCHAR(50) NOT NULL, total_amount DECIMAL(10, 2) NOT NULL, status ENUM ('pending', 'processing', 'completed', 'cancelled') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (id), UNIQUE KEY uk_order_number (order_number), KEY idx_user_id (user_id), KEY idx_status (status), KEY idx_created_at (created_at), CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;`,
-    'subquery': `-- Subquery example\nSELECT supplier_name, city\nFROM (\n  SELECT *\n  FROM suppliers\n  JOIN addresses ON suppliers.address_id = addresses.id\n) AS suppliers\nWHERE supplier_id > 500\nORDER BY supplier_name ASC, city DESC;`,
-    'complex': `-- Complex query with subquery and window functions\nWITH user_stats AS (\n  SELECT \n    u.id,\n    u.username,\n    COUNT(DISTINCT o.id) as order_count,\n    SUM(o.total_amount) as total_spent,\n    AVG(o.total_amount) as avg_order_value,\n    ROW_NUMBER() OVER (ORDER BY SUM(o.total_amount) DESC) as spending_rank\n  FROM users u\n  LEFT JOIN orders o ON u.id = o.user_id\n  WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)\n  GROUP BY u.id, u.username\n)\nSELECT \n  us.*,\n  CASE \n    WHEN us.spending_rank <= 10 THEN 'VIP'\n    WHEN us.spending_rank <= 50 THEN 'Premium'\n    ELSE 'Regular'\n  END as customer_tier\nFROM user_stats us\nWHERE us.order_count > 0\nORDER BY us.spending_rank;`
-  }
-
-  const selected = examples[example]
-  if (selected) {
-    sqlExample.value = selected
-    showMessage(`已加载 SQL 示例: ${example}`, 'success')
-  }
-}
-
-// JsonFormat 示例数据 - 大型 JSON 测试性能
-const sampleJson = ref(`{
-  "name": "Lone Format Library - Performance Test",
+// JSON 示例数据
+const jsonExample = ref(`{
+  "name": "Lone Format Library",
   "version": "0.1.0",
-  "description": "A Vue 3 component library for formatting with performance optimization",
-  "bignumber": 12345678901234567890,
+  "description": "A Vue 3 component library for formatting JSON, XML, and SQL",
   "features": [
     "Tree-shaking support",
-    "TypeScript support", 
+    "TypeScript support",
     "Vue 3 Composition API",
-    "VitePress documentation",
-    "Performance optimized key editing",
-    "Shallow copy for better performance"
+    "Multiple themes"
   ],
   "config": {
     "build": {
       "target": "es2015",
-      "minify": true,
-      "bundle": true
+      "minify": true
     },
     "dev": {
       "port": 3000,
-      "open": true,
       "hot": true
-    },
-    "performance": {
-      "shallowCopy": true,
-      "optimizedKeyRename": true,
-      "lazyLoading": false
     }
-  },
-  "stats": {
-    "downloads": 12345678901234567890,
-    "stars": 1234,
-    "forks": 56,
-    "contributors": 8,
-    "issues": 12,
-    "pullRequests": 3
-  },
-  "largeDataset": {
-    "users": {
-      "user1": { "id": 1, "name": "Alice", "email": "alice@example.com", "role": "admin", "lastLogin": "2024-01-15T10:30:00Z" },
-      "user2": { "id": 2, "name": "Bob", "email": "bob@example.com", "role": "user", "lastLogin": "2024-01-14T15:45:00Z" },
-      "user3": { "id": 3, "name": "Charlie", "email": "charlie@example.com", "role": "moderator", "lastLogin": "2024-01-13T09:20:00Z" },
-      "user4": { "id": 4, "name": "Diana", "email": "diana@example.com", "role": "user", "lastLogin": "2024-01-12T14:10:00Z" },
-      "user5": { "id": 5, "name": "Eve", "email": "eve@example.com", "role": "admin", "lastLogin": "2024-01-11T11:55:00Z" }
-    },
-    "products": {
-      "product1": { "id": "p1", "name": "Widget A", "price": 29.99, "category": "electronics", "stock": 100 },
-      "product2": { "id": "p2", "name": "Gadget B", "price": 49.99, "category": "electronics", "stock": 50 },
-      "product3": { "id": "p3", "name": "Tool C", "price": 19.99, "category": "hardware", "stock": 200 },
-      "product4": { "id": "p4", "name": "Device D", "price": 99.99, "category": "electronics", "stock": 25 },
-      "product5": { "id": "p5", "name": "Component E", "price": 15.99, "category": "parts", "stock": 300 }
-    },
-    "orders": {
-      "order1": { "id": "o1", "userId": 1, "products": ["p1", "p3"], "total": 49.98, "status": "completed" },
-      "order2": { "id": "o2", "userId": 2, "products": ["p2"], "total": 49.99, "status": "pending" },
-      "order3": { "id": "o3", "userId": 3, "products": ["p4", "p5"], "total": 115.98, "status": "shipped" }
-    }
-  },
-  "metadata": {
-    "created": "2024-01-01T00:00:00.000Z",
-    "updated": "2024-07-23T12:00:00.000Z",
-    "active": true,
-    "deprecated": false,
-    "author": null
   }
 }`)
 
-const complexJson = ref(`{
-  "users": [
-    {
-      "id": 1,
-      "name": "John Doe",
-      "email": "john@example.com",
-      "profile": {
-        "age": 30,
-        "address": {
-          "street": "123 Main St",
-          "city": "New York",
-          "country": "USA"
-        },
-        "preferences": {
-          "theme": "dark",
-          "notifications": true,
-          "languages": ["en", "es", "fr"]
-        }
-      }
-    },
-    {
-      "id": 2,
-      "name": "Jane Smith",
-      "email": "jane@example.com",
-      "profile": {
-        "age": 25,
-        "address": {
-          "street": "456 Oak Ave",
-          "city": "Los Angeles",
-          "country": "USA"
-        },
-        "preferences": {
-          "theme": "light",
-          "notifications": false,
-          "languages": ["en", "zh"]
-        }
-      }
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 10,
-    "total": 2,
-    "hasNext": false
-  }
-}`)
-
-const invalidJson = ref(`{
-  "name": "Invalid JSON",
-  "missing": quote,
-  "extra": "comma",
-}`)
-
-// 互动式编辑器的数据
-const interactiveJson = ref(`{"status":200,"text":"","error":null,"data":[{"news_id":123456789012345678901234567890,"title":"iPhone X Review: Innovative future with real black technology","source":"Netease phone","rating":0.5},{"news_id":123456789012345678901234567891,"title":"Traffic paradise: How to design streets for people and unmanned vehicles in the future?","source":"Netease smart","link":"http://netease.smart/traffic-paradise/1235","rating":0.60},{"news_id":123456789012345678901234567892,"title":"Teslamask's American Business Relations: The government does not pay billions to build factories","source":"AI Finance","rating":0.8000,"members":["Daniel","Mike","John"]}]}`)
-
-// XML 互动式编辑器的数据
-const interactiveXml = ref(`<?xml version="1.0" encoding="UTF-8"?>
+// XML 示例数据
+const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
 <library>
   <book id="1" category="programming">
     <title lang="en">Learning TypeScript</title>
     <author>Josh Goldberg</author>
     <year>2022</year>
     <price currency="USD">39.99</price>
-    <publisher>
-      <name>O'Reilly Media</name>
-      <location>Sebastopol, CA</location>
-    </publisher>
-    <tags>
-      <tag>TypeScript</tag>
-      <tag>JavaScript</tag>
-      <tag>Web Development</tag>
-    </tags>
   </book>
   <book id="2" category="web">
     <title lang="en">Vue.js 3 Cookbook</title>
     <author>Heitor Ramon Ribeiro</author>
     <year>2023</year>
     <price currency="USD">44.99</price>
-    <publisher>
-      <name>Packt Publishing</name>
-      <location>Birmingham, UK</location>
-    </publisher>
-    <tags>
-      <tag>Vue.js</tag>
-      <tag>Frontend</tag>
-      <tag>Framework</tag>
-    </tags>
   </book>
 </library>`)
 
-// SQL 互动式编辑器的数据
-const interactiveSql = ref(`select * from t where a = '1' and b = '2';`)
+// SQL 示例数据
+const sqlExample = ref(`SELECT 
+  u.id,
+  u.username,
+  u.email,
+  COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.status = 'active'
+GROUP BY u.id, u.username, u.email
+ORDER BY order_count DESC
+LIMIT 10;`)
 
 // Tab 管理
-const activeTab = ref('interactive')
+const activeTab = ref('json')
 </script>
 
 <template>
   <div class="app">
     <header class="app-header">
       <h1>🎨 Lone Format Component Library</h1>
-      <p>A Vue 3 component library demo with tree-shaking support</p>
-
-      <!-- 主题切换控制 -->
-      <!-- Theme control removed - now using tab-specific theme demo -->
+      <p>A Vue 3 component library for formatting JSON, XML, and SQL</p>
     </header>
 
     <main class="app-main">
+      <!-- Tab 导航 -->
+      <div class="tab-navigation">
+        <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'json' }]" @click="activeTab = 'json'">
+          📄 JSON Format
+        </button>
+        <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml' }]" @click="activeTab = 'xml'">
+          📝 XML Format
+        </button>
+        <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql' }]" @click="activeTab = 'sql'">
+          💾 SQL Format
+        </button>
+      </div>
 
-      <!-- JsonFormat 组件演示 -->
-      <section class="demo-section">
-        <h2>🔧 JSON Format Component</h2>
-
-        <!-- Tab 导航 -->
-        <div class="tab-navigation">
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'interactive' }]"
-            @click="activeTab = 'interactive'">
-            🚀 Interactive Example
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'basic' }]" @click="activeTab = 'basic'">
-            📄 Basic Example
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'custom' }]" @click="activeTab = 'custom'">
-            🎛️ Custom Control
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'complex' }]" @click="activeTab = 'complex'">
-            🌐 Complex Structure
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'filter' }]" @click="activeTab = 'filter'">
-            🔍 Filter Test
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'invalid' }]" @click="activeTab = 'invalid'">
-            ❌ Invalid JSON
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'theme' }]" @click="activeTab = 'theme'">
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml' }]" @click="activeTab = 'xml'">
-            📄 XML Format
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-interactive' }]" @click="activeTab = 'xml-interactive'">
-            🚀 XML Interactive
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'xml-filter' }]" @click="activeTab = 'xml-filter'">
-            🔍 XML Filter
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql' }]" @click="activeTab = 'sql'">
-            💾 SQL Format
-          </button>
-          <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql-interactive' }]" @click="activeTab = 'sql-interactive'">
-            🚀 SQL Interactive
-          </button>
+      <!-- Tab 内容 -->
+      <div class="tab-content">
+        <!-- JSON Format Tab -->
+        <div v-show="activeTab === 'json'" class="component-item">
+          <h3>JSON Format Component</h3>
+          <p class="description">
+            JSON 格式化组件，支持树形展示、语法高亮、展开/折叠等功能。
+            工具栏功能已移除，用户可以通过组件暴露的方法自行实现工具栏。
+          </p>
+          <JsonFormat v-model="jsonExample" theme="github-light" />
         </div>
 
-        <!-- Tab 内容 -->
-        <div class="tab-content">
-          <!-- Basic Example Tab -->
-          <div v-show="activeTab === 'basic'" class="component-item">
-            <h3>Sample JSON with Large Numbers</h3>
-            <p class="description">
-              This example shows JSON formatting with large numbers, nested objects, arrays, 
-              and different data types. Click on brackets to expand/collapse, and click on 
-              values to edit them.
-            </p>
-            <JsonFormat ref="jsonFormatRef" v-model="sampleJson" />
-          </div>
-
-          <!-- Custom Control Tab -->
-          <div v-show="activeTab === 'custom'" class="component-item">
-            <h3>🎛️ Custom Control Example</h3>
-            <p class="description">
-              这个示例展示了如何使用自定义按钮控制 JsonFormat 组件。
-              工具栏被隐藏，所有功能通过外部按钮控制。
-            </p>
-
-            <!-- 消息提示 - 仅用于自定义控制示例 -->
-            <div v-if="message" :class="['message', `message--${messageType}`]">
-              {{ message }}
-            </div>
-
-            <!-- 自定义控制按钮 -->
-            <div class="custom-controls">
-              <button @click="handleCustomCopy" class="custom-btn custom-btn--primary">
-                📋 自定义复制
-              </button>
-              <button @click="handleCustomExpandAll" class="custom-btn custom-btn--success">
-                📖 展开全部
-              </button>
-              <button @click="handleCustomCollapseAll" class="custom-btn custom-btn--warning">
-                📕 折叠全部
-              </button>
-              <button @click="checkCustomJsonStatus" class="custom-btn custom-btn--info">
-                🔍 检查状态
-              </button>
-            </div>
-
-            <!-- 无工具栏的 JsonFormat -->
-            <JsonFormat ref="customJsonFormatRef" v-model="sampleJson" :show-toolbar="false" />
-          </div>
-
-          <!-- Complex Structure Tab -->
-          <div v-show="activeTab === 'complex'" class="component-item">
-            <h3>Complex Nested Structure</h3>
-            <p class="description">
-              A more complex example with deeply nested objects and arrays.
-              Test the collapsible functionality and value editing.
-            </p>
-            <JsonFormat ref="complexJsonFormatRef" v-model="complexJson" />
-
-            <!-- 另一组自定义按钮 -->
-            <div class="custom-controls" style="margin-top: 16px;">
-              <button @click="handleComplexCopy" class="custom-btn custom-btn--secondary">
-                📄 复制复杂 JSON
-              </button>
-            </div>
-          </div>
-
-          <!-- Filter Test Tab -->
-          <div v-show="activeTab === 'filter'" class="component-item">
-            <h3>🔍 Filter Functionality Test</h3>
-            <p class="description">
-              Test the new Filter functionality that supports JSONPath and JavaScript expressions.
-              Apply filters to extract specific data from the JSON structure.
-            </p>
-
-            <!-- Filter Controls -->
-            <div class="filter-controls">
-              <div class="control-row">
-                <label for="filterType">Filter Type:</label>
-                <select id="filterType" v-model="filterType" class="control-input">
-                  <option value="">No Filter</option>
-                  <option value="jsonpath">JSONPath</option>
-                  <option value="js">JavaScript Expression</option>
-                </select>
-              </div>
-
-              <div class="control-row">
-                <label for="filterExpression">Filter Expression:</label>
-                <input type="text" id="filterExpression" v-model="filterExpression"
-                  :placeholder="getFilterPlaceholder()" class="control-input" @keyup.enter="applyFilter" />
-              </div>
-
-              <div class="control-actions">
-                <button @click="applyFilter" class="custom-btn custom-btn--primary">
-                  🔍 Apply Filter
-                </button>
-                <button @click="clearFilter" class="custom-btn">
-                  🗑️ Clear Filter
-                </button>
-                <button @click="loadFilterSampleData" class="custom-btn custom-btn--secondary">
-                  📝 Load Sample Data
-                </button>
-                <button @click="toggleSortKeys" class="custom-btn custom-btn--secondary">
-                  {{ isSortKeysEnabled ? '🔤 Clear Sort' : '🔤 Sort Keys' }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Filter Examples -->
-            <div class="filter-examples">
-              <h4>📚 Example Expressions:</h4>
-              <div class="examples-grid">
-                <div class="example-item">
-                  <strong>JSONPath Examples:</strong>
-                  <ul>
-                    <li><code>$.users[*].name</code> - All user names</li>
-                    <li><code>$.users[?(@.age > 30)]</code> - Users older than 30</li>
-                    <li><code>$.departments.Engineering</code> - Engineering department</li>
-                    <li><code>$.users[0]</code> - First user</li>
-                  </ul>
-                </div>
-                <div class="example-item">
-                  <strong>JavaScript Examples:</strong>
-                  <ul>
-                    <li><code>$.users.filter(u => u.active)</code> - Active users</li>
-                    <li><code>$.company.name</code> - Company name</li>
-                    <li><code>$.users.map(u => u.name)</code> - User names array</li>
-                    <li><code>$.users.length</code> - Number of users</li>
-                  </ul>
-                </div>
-              </div>
-              <div class="example-note">
-                <strong>💡 Key Sorting:</strong> Click the "Sort Keys" button to sort all object keys alphabetically. 
-                This feature works with both original and filtered data, and doesn't modify the source JSON.
-              </div>
-            </div>
-
-            <!-- JSON Display -->
-            <JsonFormat ref="filterTestRef" v-model="filterTestJson" />
-          </div>
-
-          <!-- Invalid JSON Tab -->
-          <div v-show="activeTab === 'invalid'" class="component-item">
-            <h3>Invalid JSON Example</h3>
-            <p class="description">
-              This example shows how the component handles invalid JSON with proper error display.
-              The component gracefully handles syntax errors and provides helpful feedback.
-            </p>
-            <JsonFormat v-model="invalidJson" />
-
-            <!-- 添加无效JSON的说明和示例 -->
-            <div class="invalid-json-info">
-              <h4>常见 JSON 语法错误示例：</h4>
-              <div class="error-examples">
-                <div class="error-example">
-                  <strong>❌ 缺少引号：</strong>
-                  <code>{ name: "value" }</code>
-                  <span class="error-note">属性名必须用双引号包围</span>
-                </div>
-                <div class="error-example">
-                  <strong>❌ 多余的逗号：</strong>
-                  <code>{ "name": "value", }</code>
-                  <span class="error-note">最后一个属性后不能有逗号</span>
-                </div>
-                <div class="error-example">
-                  <strong>❌ 单引号：</strong>
-                  <code>{ 'name': 'value' }</code>
-                  <span class="error-note">JSON 只支持双引号</span>
-                </div>
-                <div class="error-example">
-                  <strong>❌ 注释：</strong>
-                  <code>{ /* comment */ "name": "value" }</code>
-                  <span class="error-note">JSON 不支持注释</span>
-                </div>
-              </div>
-
-              <div class="tips">
-                <h4>💡 调试技巧：</h4>
-                <ul>
-                  <li>使用在线 JSON 验证工具检查语法</li>
-                  <li>注意括号、引号的匹配</li>
-                  <li>检查是否有多余的逗号</li>
-                  <li>确保所有字符串都使用双引号</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <!-- Theme Demo Tab -->
-          <div v-show="activeTab === 'theme'" class="component-item">
-            <h3>🎨 主题演示</h3>
-            <p class="description">
-              展示不同主题的渲染效果。切换下方的主题选择器查看不同主题的样式。
-            </p>
-
-            <!-- 主题选择器 -->
-            <div class="theme-selector">
-              <label for="theme-select">选择主题：</label>
-              <select id="theme-select" v-model="selectedTheme" class="theme-select">
-                <option value="github-light">GitHub Light</option>
-                <option value="github-dark">GitHub Dark</option>
-                <option value="min-light">Min Light</option>
-                <option value="slack-ochin">Slack Ochin</option>
-              </select>
-              <span class="current-theme-display">当前: {{ getThemeDisplayName(selectedTheme) }}</span>
-            </div>
-
-            <!-- 主题演示的 JsonFormat 组件 -->
-            <JsonFormat v-model="themeDemo" :theme="selectedTheme" :show-toolbar="true" />
-          </div>
-
-          <!-- XML Format Tab -->
-          <div v-show="activeTab === 'xml'" class="component-item">
-            <h3>📄 XML Format Component</h3>
-            <p class="description">
-              XML 格式化组件演示。支持 XML 解析、树形展示、语法高亮、展开/折叠、复制、压缩等功能。
-            </p>
-
-            <!-- XML 主题选择器 -->
-            <div class="theme-selector">
-              <label for="xml-theme-select">选择主题：</label>
-              <select id="xml-theme-select" v-model="xmlTheme" class="theme-select">
-                <option value="github-light">GitHub Light</option>
-                <option value="github-dark">GitHub Dark</option>
-                <option value="min-light">Min Light</option>
-                <option value="slack-ochin">Slack Ochin</option>
-              </select>
-              <span class="current-theme-display">当前: {{ getThemeDisplayName(xmlTheme) }}</span>
-            </div>
-
-            <!-- XML 格式化组件 -->
-            <XmlFormat 
-              v-model="xmlExample" 
-              :theme="xmlTheme" 
-              :show-toolbar="true"
-              @copy-success="() => showMessage('XML 已复制到剪贴板！', 'success')"
-              @copy-error="() => showMessage('复制失败', 'error')"
-              @expand-all="() => showMessage('已展开所有节点', 'info')"
-              @collapse-all="() => showMessage('已折叠所有节点', 'info')"
-              @compress="() => showMessage('XML 已压缩', 'success')"
-              @format="() => showMessage('XML 已格式化', 'success')"
-            />
-          </div>
-
-          <!-- Interactive Editor Tab -->
-          <div v-show="activeTab === 'interactive'" class="component-item component-item--full">
-            <h3>🚀 Interactive JSON Editor</h3>
-            <p class="description">
-              双向编辑器：左侧输入 JSON 字符串，右侧实时预览格式化结果。
-              你可以在左侧编辑原始 JSON，也可以在右侧直接修改格式化后的键值，两边会实时同步。
-            </p>
-
-            <div class="interactive-editor">
-              <div class="editor-panel">
-                <div class="panel-header">
-                  <h4>📝 JSON Input</h4>
-                  <span class="panel-info">原始 JSON 字符串</span>
-                </div>
-                <textarea v-model="interactiveJson" class="json-textarea" placeholder="在这里输入 JSON 字符串..."
-                  spellcheck="false"></textarea>
-              </div>
-
-              <div class="editor-panel">
-                <div class="panel-header">
-                  <h4>🎨 Formatted View</h4>
-                  <span class="panel-info">格式化预览 (可编辑)</span>
-                </div>
-                <div class="json-format-wrapper">
-                  <JsonFormat v-model="interactiveJson" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- XML Interactive Editor Tab -->
-          <div v-show="activeTab === 'xml-interactive'" class="component-item component-item--full">
-            <h3>🚀 Interactive XML Editor</h3>
-            <p class="description">
-              双向编辑器：左侧输入 XML 字符串，右侧实时预览格式化结果。
-              你可以在左侧编辑原始 XML，右侧会实时显示树形结构。
-            </p>
-
-            <div class="interactive-editor">
-              <div class="editor-panel">
-                <div class="panel-header">
-                  <h4>📝 XML Input</h4>
-                  <span class="panel-info">原始 XML 字符串</span>
-                </div>
-                <textarea v-model="interactiveXml" class="json-textarea" placeholder="在这里输入 XML 字符串..."
-                  spellcheck="false"></textarea>
-              </div>
-
-              <div class="editor-panel">
-                <div class="panel-header">
-                  <h4>🎨 Formatted View</h4>
-                  <span class="panel-info">格式化预览</span>
-                </div>
-                <div class="json-format-wrapper">
-                  <XmlFormat v-model="interactiveXml" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- XML Filter Test Tab -->
-          <div v-show="activeTab === 'xml-filter'" class="component-item">
-            <h3>🔍 XML XPath 过滤测试</h3>
-            <p class="description">
-              测试 XML 组件的 XPath 过滤功能。
-              使用 XPath 表达式对 XML 数据进行查询和过滤。
-            </p>
-
-            <!-- 过滤控制面板 -->
-            <div class="filter-controls">
-              <div class="filter-row">
-                <label for="xml-filter-type">过滤类型:</label>
-                <select id="xml-filter-type" v-model="xmlFilterType" class="filter-select">
-                  <option value="">不过滤</option>
-                  <option value="xpath">XPath</option>
-                </select>
-              </div>
-
-              <div class="filter-row">
-                <label for="xml-filter-expr">过滤表达式:</label>
-                <input id="xml-filter-expr" v-model="xmlFilterExpression" type="text" class="filter-input"
-                  :placeholder="getXmlFilterPlaceholder()" @keyup.enter="applyXmlFilter" />
-              </div>
-
-              <div class="filter-actions">
-                <button class="filter-btn filter-btn--primary" @click="applyXmlFilter">
-                  ✓ 应用过滤
-                </button>
-                <button class="filter-btn filter-btn--secondary" @click="clearXmlFilter">
-                  ✗ 清除过滤
-                </button>
-              </div>
-            </div>
-
-            <!-- XPath 示例 -->
-            <div class="filter-examples">
-              <h4>XPath 示例:</h4>
-              <div class="example-buttons">
-                <button class="example-btn" @click="loadXmlFilterExample('all-books')">
-                  所有书籍: //book
-                </button>
-                <button class="example-btn" @click="loadXmlFilterExample('programming-books')">
-                  编程类书籍: //book[@category="programming"]
-                </button>
-                <button class="example-btn" @click="loadXmlFilterExample('book-titles')">
-                  所有标题: //book/title
-                </button>
-                <button class="example-btn" @click="loadXmlFilterExample('year-filter')">
-                  2020年后: //book[year>2020]
-                </button>
-                <button class="example-btn" @click="loadXmlFilterExample('first-book')">
-                  第一本书: //book[1]
-                </button>
-                <button class="example-btn" @click="loadXmlFilterExample('authors')">
-                  所有作者: //author
-                </button>
-                <button class="example-btn" @click="loadXmlFilterExample('library-name')">
-                  图书馆名称: /library/@name
-                </button>
-              </div>
-            </div>
-
-            <!-- XML 格式化组件 -->
-            <div class="xml-filter-viewer">
-              <XmlFormat ref="xmlFilterTestRef" v-model="xmlFilterTestData" />
-            </div>
-          </div>
-
-          <!-- SQL Format Tab -->
-          <div v-show="activeTab === 'sql'" class="component-item">
-            <h3>💾 SQL Format Demo</h3>
-            <p class="description">
-              SQL 格式化组件支持多种 SQL 方言，提供语法高亮、格式化和压缩功能。
-              支持 MySQL、PostgreSQL、SQLite、PL/SQL、T-SQL 等方言。
-            </p>
-
-            <!-- 主题和方言选择器 -->
-            <div class="control-panel">
-              <div class="control-group">
-                <label for="sql-theme">主题:</label>
-                <select id="sql-theme" v-model="sqlTheme" class="theme-select">
-                  <option value="github-light">GitHub Light</option>
-                  <option value="github-dark">GitHub Dark</option>
-                  <option value="min-light">Min Light</option>
-                  <option value="slack-ochin">Slack Ochin</option>
-                </select>
-                <span class="current-theme-display">当前: {{ getThemeDisplayName(sqlTheme) }}</span>
-              </div>
-            </div>
-
-            <!-- SQL 格式化组件 -->
-            <SqlFormat 
-              ref="sqlFormatRef" 
-              v-model="sqlExample" 
-              :theme="sqlTheme"
-              :dialect="sqlDialect"
-              :show-toolbar="true"
-              @copy-success="() => showMessage('SQL 已复制到剪贴板！', 'success')"
-              @copy-error="() => showMessage('复制失败', 'error')"
-              @compress="() => showMessage('SQL 已压缩', 'success')"
-              @format="() => showMessage('SQL 已格式化', 'success')"
-            />
-
-            <!-- SQL 示例按钮 -->
-            <div class="sql-examples">
-              <h4>SQL 示例:</h4>
-              <div class="example-buttons">
-                <button class="example-btn" @click="loadSqlExample('select')">
-                  SELECT 查询
-                </button>
-                <button class="example-btn" @click="loadSqlExample('join')">
-                  JOIN 查询
-                </button>
-                <button class="example-btn" @click="loadSqlExample('insert')">
-                  INSERT 语句
-                </button>
-                <button class="example-btn" @click="loadSqlExample('update')">
-                  UPDATE 语句
-                </button>
-                <button class="example-btn" @click="loadSqlExample('create')">
-                  CREATE TABLE
-                </button>
-                <button class="example-btn" @click="loadSqlExample('subquery')">
-                  子查询
-                </button>
-                <button class="example-btn" @click="loadSqlExample('complex')">
-                  复杂查询
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- SQL Interactive Editor Tab -->
-          <div v-show="activeTab === 'sql-interactive'" class="component-item component-item--full">
-            <h3>🚀 Interactive SQL Editor</h3>
-            <p class="description">
-              双向编辑器：左侧输入 SQL 字符串，右侧实时预览格式化结果。
-              你可以在左侧编辑原始 SQL，测试不同的格式化效果。
-            </p>
-
-            <div class="interactive-editor">
-              <div class="editor-panel">
-                <div class="panel-header">
-                  <h4>📝 SQL Input</h4>
-                  <span class="panel-info">原始 SQL 字符串</span>
-                </div>
-                <textarea v-model="interactiveSql" class="json-textarea" placeholder="在这里输入 SQL 语句..."
-                  spellcheck="false"></textarea>
-              </div>
-
-              <div class="editor-panel">
-                <div class="panel-header">
-                  <h4>🎨 Formatted View</h4>
-                  <span class="panel-info">格式化预览</span>
-                </div>
-                <div class="json-format-wrapper">
-                  <SqlFormat v-model="interactiveSql" />
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- XML Format Tab -->
+        <div v-show="activeTab === 'xml'" class="component-item">
+          <h3>XML Format Component</h3>
+          <p class="description">
+            XML 格式化组件，支持 XML 解析、树形展示、语法高亮等功能。
+            工具栏功能已移除，用户可以通过组件暴露的方法自行实现工具栏。
+          </p>
+          <XmlFormat v-model="xmlExample" theme="github-light" />
         </div>
-      </section>
+
+        <!-- SQL Format Tab -->
+        <div v-show="activeTab === 'sql'" class="component-item">
+          <h3>SQL Format Component</h3>
+          <p class="description">
+            SQL 格式化组件，支持多种 SQL 方言、语法高亮、格式化等功能。
+            工具栏功能已移除，用户可以通过组件暴露的方法自行实现工具栏。
+          </p>
+          <SqlFormat v-model="sqlExample" theme="github-light" dialect="mysql" />
+        </div>
+      </div>
     </main>
 
     <footer class="app-footer">
@@ -1063,362 +146,20 @@ const activeTab = ref('interactive')
 }
 
 .app-header p {
-  margin: 0 0 20px 0;
+  margin: 0;
   font-size: 1.2rem;
   opacity: 0.9;
-}
-
-.theme-selector {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0;
-  padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-}
-
-.theme-selector label {
-  font-weight: 500;
-  font-size: 14px;
-  color: #333;
-}
-
-.theme-select {
-  padding: 6px 12px;
-  border: 1px solid #d1d5da;
-  border-radius: 6px;
-  background: white;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.theme-select:hover {
-  border-color: #0366d6;
-}
-
-.theme-select:focus {
-  outline: none;
-  border-color: #0366d6;
-  box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
-}
-
-.current-theme-display {
-  font-size: 12px;
-  color: #666;
-  font-family: 'Courier New', monospace;
-  background: rgba(0, 0, 0, 0.05);
-  padding: 4px 8px;
-  border-radius: 4px;
 }
 
 .app-main {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-}
-
-.demo-section {
-  padding: 24px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  border: 1px solid #e9ecef;
-}
-
-.demo-section h2 {
-  margin: 0 0 24px 0;
-  color: #333;
-  font-size: 1.8rem;
-  font-weight: 600;
-  border-bottom: 2px solid #667eea;
-  padding-bottom: 8px;
-}
-
-.component-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 24px;
-}
-
-.component-item {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.component-item h3 {
-  margin: 0 0 12px 0;
-  color: #495057;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.description {
-  margin: 0 0 16px 0;
-  color: #6c757d;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border-left: 4px solid #667eea;
-}
-
-.custom-content {
-  background: #fff;
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 4px solid #ff9800;
-}
-
-.custom-content ul {
-  margin: 12px 0 0 0;
-  padding-left: 20px;
-}
-
-.custom-content li {
-  margin: 8px 0;
-}
-
-.app-footer {
-  text-align: center;
-  margin-top: 40px;
-  padding: 20px;
-  color: #666;
-  border-top: 1px solid #e9ecef;
-}
-
-@media (max-width: 768px) {
-  .app {
-    padding: 16px;
-  }
-
-  .app-header h1 {
-    font-size: 2rem;
-  }
-
-  .demo-section {
-    padding: 16px;
-  }
-
-  .component-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .component-item {
-    padding: 16px;
-  }
-}
-
-/* 消息提示样式 */
-.message {
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  font-weight: 500;
-  animation: fadeIn 0.3s ease;
-}
-
-.message--success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.message--error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.message--info {
-  background: #d1ecf1;
-  color: #0c5460;
-  border: 1px solid #bee5eb;
-}
-
-/* 自定义控制按钮样式 */
-.custom-controls {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.custom-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.custom-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.custom-btn--primary {
-  background: #007bff;
-  color: white;
-}
-
-.custom-btn--primary:hover {
-  background: #0056b3;
-}
-
-.custom-btn--success {
-  background: #28a745;
-  color: white;
-}
-
-.custom-btn--success:hover {
-  background: #1e7e34;
-}
-
-.custom-btn--warning {
-  background: #ffc107;
-  color: #212529;
-}
-
-.custom-btn--warning:hover {
-  background: #e0a800;
-}
-
-.custom-btn--info {
-  background: #17a2b8;
-  color: white;
-}
-
-.custom-btn--info:hover {
-  background: #138496;
-}
-
-.custom-btn--secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.custom-btn--secondary:hover {
-  background: #545b62;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 互动式编辑器样式 */
-.component-item--full {
-  grid-column: 1 / -1;
-  /* 占满整行 */
-}
-
-.interactive-editor {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 20px;
-  min-height: 500px;
 }
 
-.editor-panel {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  overflow: hidden;
-  background: white;
-}
-
-.panel-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.panel-header h4 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.panel-info {
-  font-size: 0.875rem;
-  opacity: 0.9;
-}
-
-.json-textarea {
-  flex: 1;
-  border: none;
-  padding: 16px;
-  font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  resize: none;
-  outline: none;
-  background: #fafbfc;
-  color: #24292f;
-  tab-size: 2;
-}
-
-.json-textarea:focus {
-  background: #ffffff;
-  box-shadow: inset 0 0 0 2px #667eea;
-}
-
-.json-format-wrapper {
-  flex: 1;
-  overflow: hidden;
-}
-
-.json-format-wrapper .json-format {
-  border: none;
-  border-radius: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.json-format-wrapper .json-format__content {
-  flex: 1;
-  overflow: auto;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .interactive-editor {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    min-height: auto;
-  }
-
-  .editor-panel {
-    min-height: 300px;
-  }
-}
-
-/* Tab 导航样式 */
 .tab-navigation {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
   border-bottom: 2px solid #e9ecef;
   overflow-x: auto;
   padding-bottom: 0;
@@ -1438,15 +179,9 @@ const activeTab = ref('interactive')
   position: relative;
   border-bottom: 3px solid transparent;
   outline: none;
-  /* 移除默认焦点轮廓 */
 }
 
 .tab-btn:hover {
-  background: #f8f9fa;
-  color: #495057;
-}
-
-.tab-btn:focus {
   background: #f8f9fa;
   color: #495057;
 }
@@ -1458,339 +193,56 @@ const activeTab = ref('interactive')
   font-weight: 600;
 }
 
-.tab-btn--active:focus {
-  background: #ffffff;
-  color: #667eea;
-}
-
 .tab-content {
-  min-height: 400px;
-}
-
-.tab-content .component-item {
-  margin: 0;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   min-height: 500px;
-  /* 确保所有 tab 内容有最小高度 */
-  width: 100%;
-  /* 确保所有 tab 内容宽度一致 */
-  box-sizing: border-box;
-  /* 包含padding和border在内的宽度计算 */
 }
 
-.tab-content .component-item--full {
+.component-item {
   background: white;
   padding: 20px;
   border-radius: 8px;
   border: 1px solid #e9ecef;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  box-sizing: border-box;
 }
 
-/* Invalid JSON tab 特殊样式 */
-.invalid-json-info {
-  margin-top: 24px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border-left: 4px solid #dc3545;
-}
-
-.invalid-json-info h4 {
-  margin: 0 0 16px 0;
-  color: #dc3545;
-  font-size: 1.1rem;
+.component-item h3 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 1.4rem;
   font-weight: 600;
 }
 
-.error-examples {
-  margin-bottom: 20px;
-}
-
-.error-example {
-  margin-bottom: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.error-example:last-child {
-  border-bottom: none;
-}
-
-.error-example strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #dc3545;
-}
-
-.error-example code {
-  background: #f1f3f4;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: Monaco, Consolas, "Courier New", monospace;
-  font-size: 0.9rem;
-  color: #d73a49;
-  display: block;
-  margin: 4px 0;
-}
-
-.error-note {
+.description {
+  margin: 0 0 16px 0;
   color: #6c757d;
-  font-size: 0.85rem;
-  font-style: italic;
-}
-
-.tips {
-  background: white;
-  padding: 16px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  padding: 12px;
+  background: #f8f9fa;
   border-radius: 6px;
-  border-left: 4px solid #17a2b8;
+  border-left: 4px solid #667eea;
 }
 
-.tips h4 {
-  margin: 0 0 12px 0;
-  color: #17a2b8;
-  font-size: 1rem;
+.app-footer {
+  text-align: center;
+  margin-top: 40px;
+  padding: 20px;
+  color: #666;
+  border-top: 1px solid #e9ecef;
 }
 
-.tips ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.tips li {
-  margin: 6px 0;
-  color: #495057;
-}
-
-/* 移动端 Tab 响应式 */
 @media (max-width: 768px) {
-  .tab-navigation {
-    flex-wrap: wrap;
-    gap: 8px;
+  .app {
+    padding: 16px;
+  }
+
+  .app-header h1 {
+    font-size: 2rem;
   }
 
   .tab-btn {
     padding: 10px 16px;
     font-size: 13px;
-    flex: 1;
-    min-width: auto;
   }
-}
-
-/* Filter Controls 样式 */
-.filter-controls {
-  margin-bottom: 24px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-}
-
-.control-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-  gap: 12px;
-}
-
-.control-row label {
-  font-weight: 600;
-  color: #495057;
-  min-width: 140px;
-  text-align: right;
-}
-
-.control-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: border-color 0.15s ease;
-}
-
-.control-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
-}
-
-.control-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-}
-
-.custom-btn--secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.custom-btn--secondary:hover {
-  background: #5a6268;
-}
-
-/* Filter Examples 样式 */
-.filter-examples {
-  margin-bottom: 24px;
-  padding: 20px;
-  background: #e3f2fd;
-  border-radius: 8px;
-  border-left: 4px solid #2196f3;
-}
-
-.filter-examples h4 {
-  margin: 0 0 16px 0;
-  color: #1976d2;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-/* SQL Examples 样式 */
-.sql-examples {
-  margin-top: 24px;
-  padding: 20px;
-  background: #f3e5f5;
-  border-radius: 8px;
-  border-left: 4px solid #9c27b0;
-}
-
-.sql-examples h4 {
-  margin: 0 0 16px 0;
-  color: #7b1fa2;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.examples-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.example-item {
-  background: white;
-  padding: 16px;
-  border-radius: 6px;
-  border: 1px solid #bbdefb;
-}
-
-.example-item strong {
-  display: block;
-  margin-bottom: 12px;
-  color: #1976d2;
-  font-weight: 600;
-}
-
-.example-item ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.example-item li {
-  margin: 8px 0;
-  color: #495057;
-}
-
-.example-item code {
-  background: #f5f5f5;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
-  font-size: 13px;
-  color: #d63384;
-}
-
-.example-note {
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
-  border-radius: 6px;
-  color: #856404;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.example-note strong {
-  color: #664d03;
-}
-
-/* 移动端 Filter 响应式 */
-@media (max-width: 768px) {
-  .examples-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .control-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .control-row label {
-    text-align: left;
-    min-width: auto;
-    margin-bottom: 8px;
-  }
-
-  .control-actions {
-    justify-content: center;
-  }
-}
-
-/* XML Filter 样式 */
-.xml-filter-viewer {
-  margin-top: 20px;
-}
-
-.filter-examples {
-  margin: 20px 0;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.filter-examples h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #495057;
-}
-
-.filter-examples h4:not(:first-child) {
-  margin-top: 16px;
-}
-
-.example-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.example-btn {
-  padding: 6px 12px;
-  font-size: 13px;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: #495057;
-}
-
-.example-btn:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
-}
-
-.example-btn:active {
-  transform: translateY(1px);
 }
 </style>
