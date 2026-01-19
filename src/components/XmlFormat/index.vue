@@ -1,62 +1,5 @@
 <template>
   <div class="xml-format" :class="`xml-format--${currentTheme.name}`">
-    <!-- 工具栏 -->
-    <div v-if="showToolbar" class="xml-format__toolbar">
-      <div class="xml-format__actions">
-        <button
-          class="xml-format__btn xml-format__btn--primary"
-          @click="copyXml"
-          :disabled="!isValidXml"
-          title="Copy XML"
-        >
-          📋 Copy
-        </button>
-        <button
-          class="xml-format__btn xml-format__btn--secondary"
-          @click="expandAll"
-          :disabled="!isValidXml"
-          title="Expand All"
-        >
-          ⬇️ Expand All
-        </button>
-        <button
-          class="xml-format__btn xml-format__btn--secondary"
-          @click="collapseAll"
-          :disabled="!isValidXml"
-          title="Collapse All"
-        >
-          ➡️ Collapse All
-        </button>
-        <button
-          class="xml-format__btn xml-format__btn--secondary"
-          @click="compressSource"
-          :disabled="!isValidXml"
-          title="Compress XML"
-        >
-          📦 Compress
-        </button>
-        <button
-          class="xml-format__btn xml-format__btn--secondary"
-          @click="formatSource"
-          :disabled="!isValidXml"
-          title="Format XML"
-        >
-          ✨ Format
-        </button>
-      </div>
-      <div class="xml-format__info">
-        <span
-          v-if="isValidXml"
-          class="xml-format__status xml-format__status--success"
-        >
-          ✅ Valid XML
-        </span>
-        <span v-else class="xml-format__status xml-format__status--error">
-          ❌ Invalid XML
-        </span>
-      </div>
-    </div>
-
     <div class="xml-format__content">
       <!-- 解析错误信息 -->
       <div v-if="!isValidXml" class="xml-format__error">
@@ -114,7 +57,6 @@ interface Props {
   modelValue: string
   readonly?: boolean
   maxDepth?: number
-  showToolbar?: boolean
   theme?: ThemeType
   showComments?: boolean
   showCdata?: boolean
@@ -125,7 +67,6 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   readonly: false,
   maxDepth: 10,
-  showToolbar: true,
   theme: 'github-light',
   showComments: true,
   showCdata: true,
@@ -764,7 +705,7 @@ defineExpose({
 
 <style scoped>
 .xml-format {
-  border: 1px solid v-bind('currentTheme.colors.border');
+  /* border: 1px solid v-bind('currentTheme.colors.border'); */
   border-radius: 6px;
   background: v-bind('currentTheme.colors.background');
   overflow: hidden;
@@ -773,79 +714,6 @@ defineExpose({
   font-size: 14px;
   line-height: 1.5;
   color: v-bind('currentTheme.colors.text');
-}
-
-.xml-format__toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: v-bind('currentTheme.colors.surfaceBackground');
-  border-bottom: 1px solid v-bind('currentTheme.colors.border');
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.xml-format__actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.xml-format__btn {
-  padding: 6px 12px;
-  border: 1px solid v-bind('currentTheme.colors.buttonBorder');
-  border-radius: 6px;
-  background: v-bind('currentTheme.colors.buttonBackground');
-  color: v-bind('currentTheme.colors.buttonText');
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.xml-format__btn:hover:not(:disabled) {
-  background: v-bind('currentTheme.colors.buttonBackgroundHover');
-}
-
-.xml-format__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.xml-format__btn--primary {
-  background: v-bind('currentTheme.colors.buttonPrimary');
-  color: white;
-  border-color: v-bind('currentTheme.colors.buttonPrimary');
-}
-
-.xml-format__btn--primary:hover:not(:disabled) {
-  background: v-bind('currentTheme.colors.buttonPrimaryHover');
-  border-color: v-bind('currentTheme.colors.buttonPrimaryHover');
-}
-
-.xml-format__info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.xml-format__status {
-  font-size: 14px;
-  font-weight: 500;
-  padding: 4px 12px;
-  border-radius: 12px;
-  white-space: nowrap;
-}
-
-.xml-format__status--success {
-  color: v-bind('currentTheme.colors.success');
-  background: v-bind('currentTheme.colors.successBackground');
-}
-
-.xml-format__status--error {
-  color: v-bind('currentTheme.colors.error');
-  background: v-bind('currentTheme.colors.errorBackground');
 }
 
 .xml-format__content {

@@ -1,35 +1,5 @@
 <template>
   <div class="json-format" :class="`json-format--${currentTheme.name}`">
-    <!-- 可选的工具栏 -->
-    <div v-if="showToolbar" class="json-format__toolbar">
-      <div class="json-format__actions">
-        <button class="json-format__btn json-format__btn--primary" @click="copyJson" :disabled="!isValidJson"
-          title="Copy JSON">
-          📋 Copy
-        </button>
-        <button class="json-format__btn json-format__btn--secondary" @click="expandAll" :disabled="!isValidJson"
-          title="Expand All">
-          ⬇️ Expand All
-        </button>
-        <button class="json-format__btn json-format__btn--secondary" @click="collapseAll" :disabled="!isValidJson"
-          title="Collapse All">
-          ➡️ Collapse All
-        </button>
-        <button class="json-format__btn json-format__btn--secondary" @click="compressSource" :disabled="!isValidJson"
-          title="Compress JSON">
-          📦 Compress
-        </button>
-      </div>
-      <div class="json-format__info">
-        <span v-if="isValidJson" class="json-format__status json-format__status--success">
-          ✅ Valid JSON
-        </span>
-        <span v-else class="json-format__status json-format__status--error">
-          ❌ Invalid JSON
-        </span>
-      </div>
-    </div>
-
     <div class="json-format__content">
       <div v-if="!isValidJson" class="json-format__error">
         <h4>JSON Parse Error:</h4>
@@ -61,7 +31,6 @@ interface Props {
   modelValue: string
   readonly?: boolean
   maxDepth?: number
-  showToolbar?: boolean
   theme?: ThemeType
 }
 
@@ -69,7 +38,6 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   readonly: false,
   maxDepth: 10,
-  showToolbar: true,
   theme: 'github-light'
 })
 
@@ -856,86 +824,13 @@ defineExpose({
 
 <style scoped>
 .json-format {
-  border: 1px solid v-bind('currentTheme.colors.border');
+  /* border: 1px solid v-bind('currentTheme.colors.border'); */
   border-radius: 6px;
   background: v-bind('currentTheme.colors.background');
   font-family: Monaco, Consolas, "Lucida Console", "Courier New", ui-monospace, SFMono-Regular, "SF Mono", "Liberation Mono", Menlo, monospace;
   font-size: 14px;
   line-height: 1.5;
   color: v-bind('currentTheme.colors.text');
-}
-
-.json-format__toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: v-bind('currentTheme.colors.surfaceBackground');
-  border-bottom: 1px solid v-bind('currentTheme.colors.border');
-  border-radius: 6px 6px 0 0;
-}
-
-.json-format__actions {
-  display: flex;
-  gap: 8px;
-}
-
-.json-format__btn {
-  padding: 4px 8px;
-  border: 1px solid v-bind('currentTheme.colors.buttonBorder');
-  border-radius: 6px;
-  background: v-bind('currentTheme.colors.buttonBackground');
-  color: v-bind('currentTheme.colors.buttonText');
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.json-format__btn:hover:not(:disabled) {
-  background: v-bind('currentTheme.colors.buttonBackgroundHover');
-  border-color: v-bind('currentTheme.colors.buttonBorder');
-}
-
-.json-format__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.json-format__btn--primary {
-  background: v-bind('currentTheme.colors.buttonPrimary');
-  color: white;
-  border-color: v-bind('currentTheme.colors.buttonPrimary');
-}
-
-.json-format__btn--primary:hover:not(:disabled) {
-  background: v-bind('currentTheme.colors.buttonPrimaryHover');
-}
-
-.json-format__btn--secondary {
-  background: v-bind('currentTheme.colors.background');
-  border-color: v-bind('currentTheme.colors.border');
-}
-
-.json-format__info {
-  display: flex;
-  align-items: center;
-}
-
-.json-format__status {
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.json-format__status--success {
-  background: v-bind('currentTheme.colors.successBackground');
-  color: v-bind('currentTheme.colors.success');
-}
-
-.json-format__status--error {
-  background: v-bind('currentTheme.colors.errorBackground');
-  color: v-bind('currentTheme.colors.error');
 }
 
 .json-format__content {

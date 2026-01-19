@@ -1,76 +1,5 @@
 <template>
   <div class="sql-format" :class="`sql-format--${currentTheme.name}`">
-    <!-- 工具栏 -->
-    <div v-if="showToolbar" class="sql-format__toolbar">
-      <div class="sql-format__actions">
-        <button
-          class="sql-format__btn sql-format__btn--primary"
-          @click="copySql"
-          :disabled="!isValidSql"
-          title="Copy SQL"
-        >
-          📋 Copy
-        </button>
-        <button
-          class="sql-format__btn sql-format__btn--secondary"
-          @click="formatSource"
-          :disabled="!isValidSql"
-          title="Format SQL"
-        >
-          ✨ Format
-        </button>
-        <button
-          class="sql-format__btn sql-format__btn--secondary"
-          @click="compressSource"
-          :disabled="!isValidSql"
-          title="Compress SQL"
-        >
-          📦 Compress
-        </button>
-        <button
-          class="sql-format__btn sql-format__btn--secondary"
-          @click="expandAll"
-          :disabled="!isValidSql || parsedClauses.length === 0"
-          title="Expand All Clauses"
-        >
-          ⬇️ Expand All
-        </button>
-        <button
-          class="sql-format__btn sql-format__btn--secondary"
-          @click="collapseAll"
-          :disabled="!isValidSql || parsedClauses.length === 0"
-          title="Collapse All Clauses"
-        >
-          ⬆️ Collapse All
-        </button>
-        
-        <!-- Dialect 选择器 -->
-        <select
-          v-model="currentDialect"
-          class="sql-format__dialect-select"
-          title="SQL Dialect"
-        >
-          <option value="sql">SQL</option>
-          <option value="mysql">MySQL</option>
-          <option value="postgresql">PostgreSQL</option>
-          <option value="sqlite">SQLite</option>
-          <option value="plsql">PL/SQL</option>
-          <option value="tsql">T-SQL</option>
-        </select>
-      </div>
-      <div class="sql-format__info">
-        <span
-          v-if="isValidSql"
-          class="sql-format__status sql-format__status--success"
-        >
-          ✅ Valid SQL
-        </span>
-        <span v-else class="sql-format__status sql-format__status--error">
-          ❌ Invalid SQL
-        </span>
-      </div>
-    </div>
-
     <div class="sql-format__content">
       <!-- 解析错误信息 -->
       <div v-if="!isValidSql" class="sql-format__error">
@@ -125,7 +54,6 @@ import { validateSql, formatSql, compressSql, tokenizeSql, parseSqlClauses } fro
 interface Props {
   modelValue: string
   readonly?: boolean
-  showToolbar?: boolean
   theme?: ThemeType
   dialect?: SqlDialect
   tabWidth?: number
@@ -134,7 +62,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   readonly: false,
-  showToolbar: true,
   theme: 'github-light',
   dialect: 'sql',
   tabWidth: 2,
@@ -427,99 +354,9 @@ defineExpose({
   line-height: 1.6;
   background-color: v-bind('currentTheme.colors.background');
   color: v-bind('currentTheme.colors.text');
-  border: 1px solid v-bind('currentTheme.colors.border');
+  /* border: 1px solid v-bind('currentTheme.colors.border'); */
   border-radius: 6px;
   overflow: hidden;
-}
-
-/* 工具栏 */
-.sql-format__toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: v-bind('currentTheme.colors.surfaceBackground');
-  border-bottom: 1px solid v-bind('currentTheme.colors.border');
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.sql-format__actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.sql-format__btn {
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid v-bind('currentTheme.colors.buttonBorder');
-  background-color: v-bind('currentTheme.colors.buttonBackground');
-  color: v-bind('currentTheme.colors.buttonText');
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.sql-format__btn:hover:not(:disabled) {
-  background-color: v-bind('currentTheme.colors.buttonBackgroundHover');
-}
-
-.sql-format__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.sql-format__btn--primary {
-  background-color: v-bind('currentTheme.colors.buttonPrimary');
-  color: white;
-  border-color: v-bind('currentTheme.colors.buttonPrimary');
-}
-
-.sql-format__btn--primary:hover:not(:disabled) {
-  background-color: v-bind('currentTheme.colors.buttonPrimaryHover');
-  border-color: v-bind('currentTheme.colors.buttonPrimaryHover');
-}
-
-.sql-format__dialect-select {
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid v-bind('currentTheme.colors.buttonBorder');
-  background-color: v-bind('currentTheme.colors.buttonBackground');
-  color: v-bind('currentTheme.colors.buttonText');
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.sql-format__dialect-select:hover {
-  background-color: v-bind('currentTheme.colors.buttonBackgroundHover');
-}
-
-.sql-format__info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sql-format__status {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.sql-format__status--success {
-  background-color: v-bind('currentTheme.colors.successBackground');
-  color: v-bind('currentTheme.colors.success');
-}
-
-.sql-format__status--error {
-  background-color: v-bind('currentTheme.colors.errorBackground');
-  color: v-bind('currentTheme.colors.error');
 }
 
 /* 内容区域 */
