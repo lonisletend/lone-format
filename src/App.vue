@@ -59,6 +59,9 @@ LIMIT 10;`)
 // Tab 管理
 const activeTab = ref('json')
 
+// JSON 组件引用
+const jsonFormatRef = ref()
+
 // XML 组件引用
 const xmlFormatRef = ref()
 
@@ -66,6 +69,19 @@ const xmlFormatRef = ref()
 const xmlSorted = ref(false)
 
 // XML 排序操作
+// JSON 操作
+const handleJsonExpandAll = () => {
+  if (jsonFormatRef.value) {
+    jsonFormatRef.value.expandAll()
+  }
+}
+
+const handleJsonCollapseAll = () => {
+  if (jsonFormatRef.value) {
+    jsonFormatRef.value.collapseAll()
+  }
+}
+
 const handleXmlSort = () => {
   if (xmlFormatRef.value) {
     xmlFormatRef.value.sort()
@@ -130,7 +146,20 @@ const handleXmlCopy = async () => {
             JSON 格式化组件，支持树形展示、语法高亮、展开/折叠等功能。
             工具栏功能已移除，用户可以通过组件暴露的方法自行实现工具栏。
           </p>
-          <JsonFormat v-model="jsonExample" theme="github-light" />
+          
+          <!-- JSON 工具栏 -->
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleJsonExpandAll">
+                📂 展开所有
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleJsonCollapseAll">
+                📁 折叠所有
+              </button>
+            </div>
+          </div>
+          
+          <JsonFormat ref="jsonFormatRef" v-model="jsonExample" theme="github-light" />
         </div>
 
         <!-- XML Format Tab -->

@@ -558,7 +558,7 @@ const expandAll = () => {
 
 // 全部折叠
 const collapseAll = () => {
-  expandedNodes.value = new Set(['root'])
+  expandedNodes.value = new Set()
   emit('collapse-all')
 }
 

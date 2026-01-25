@@ -299,8 +299,8 @@
               color: theme.colors.collapsedText
             }"
             @click="toggleCollapse()"
-            :title="`Click to expand ${collapsedChildrenCount} child element${collapsedChildrenCount > 1 ? 's' : ''}`"
-          >{{ collapsedChildrenCount }} child{{ collapsedChildrenCount > 1 ? 'ren' : '' }}</span>
+            :title="`Click to expand ${collapsedChildrenCount} tag${collapsedChildrenCount > 1 ? 's' : ''}`"
+          >{{ collapsedChildrenCount }} tag{{ collapsedChildrenCount > 1 ? 's' : '' }}</span>
           <!-- 结束标签 - 可点击展开 -->
           <span
             class="xml-node__clickable-part"
