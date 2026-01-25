@@ -147,6 +147,11 @@ export interface XmlFormatExposed {
   filter: (config: FilterConfig) => void
   clearFilter: () => void
 
+  // 属性排序相关方法
+  sortAttributes: () => void
+  clearSortAttributes: () => void
+  isSorted: () => boolean
+
   // 状态访问方法
   isValidXml: () => boolean
   getParsedXml: () => ParsedXml | null
