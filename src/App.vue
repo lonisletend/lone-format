@@ -59,6 +59,19 @@ LIMIT 10;`)
 // Tab 管理
 const activeTab = ref('json')
 
+// 主题管理
+const jsonTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
+const xmlTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
+const sqlTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
+
+// 主题选项
+const themeOptions = [
+  { label: 'GitHub Light', value: 'github-light' },
+  { label: 'GitHub Dark', value: 'github-dark' },
+  { label: 'Min Light', value: 'min-light' },
+  { label: 'Slack Ochin', value: 'slack-ochin' }
+]
+
 // JSON 组件引用
 const jsonFormatRef = ref()
 
@@ -157,9 +170,17 @@ const handleXmlCopy = async () => {
                 📁 折叠所有
               </button>
             </div>
+            <div class="toolbar-group">
+              <label class="theme-label">主题：</label>
+              <select v-model="jsonTheme" class="theme-select">
+                <option v-for="option in themeOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
           </div>
           
-          <JsonFormat ref="jsonFormatRef" v-model="jsonExample" theme="github-light" />
+          <JsonFormat ref="jsonFormatRef" v-model="jsonExample" :theme="jsonTheme" />
         </div>
 
         <!-- XML Format Tab -->
@@ -191,12 +212,20 @@ const handleXmlCopy = async () => {
                 📋 复制 XML
               </button>
             </div>
+            <div class="toolbar-group">
+              <label class="theme-label">主题：</label>
+              <select v-model="xmlTheme" class="theme-select">
+                <option v-for="option in themeOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
             <div class="toolbar-status" v-if="xmlSorted" data-testid="xml-sort-status">
               ✅ 已排序
             </div>
           </div>
           
-          <XmlFormat ref="xmlFormatRef" v-model="xmlExample" theme="github-light" />
+          <XmlFormat ref="xmlFormatRef" v-model="xmlExample" :theme="xmlTheme" />
         </div>
 
         <!-- SQL Format Tab -->
@@ -206,7 +235,20 @@ const handleXmlCopy = async () => {
             SQL 格式化组件，支持多种 SQL 方言、语法高亮、格式化等功能。
             工具栏功能已移除，用户可以通过组件暴露的方法自行实现工具栏。
           </p>
-          <SqlFormat v-model="sqlExample" theme="github-light" dialect="mysql" />
+          
+          <!-- SQL 工具栏 -->
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <label class="theme-label">主题：</label>
+              <select v-model="sqlTheme" class="theme-select">
+                <option v-for="option in themeOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+          
+          <SqlFormat v-model="sqlExample" :theme="sqlTheme" dialect="mysql" />
         </div>
       </div>
     </main>
@@ -381,6 +423,33 @@ const handleXmlCopy = async () => {
   font-size: 14px;
   font-weight: 500;
   border: 1px solid #c3e6cb;
+}
+
+.theme-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.theme-select {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: white;
+  color: #24292f;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.theme-select:hover {
+  border-color: #667eea;
+}
+
+.theme-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .app-footer {
