@@ -147,9 +147,9 @@ export interface XmlFormatExposed {
   filter: (config: FilterConfig) => void
   clearFilter: () => void
 
-  // 属性排序相关方法
-  sortAttributes: () => void
-  clearSortAttributes: () => void
+  // 排序相关方法
+  sort: () => void
+  clearSort: () => void
   isSorted: () => boolean
 
   // 状态访问方法
