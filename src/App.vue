@@ -59,6 +59,46 @@ LIMIT 10;`)
 
 // Tab 管理
 const activeTab = ref('json')
+
+// XML 组件引用
+const xmlFormatRef = ref()
+
+// XML 排序状态
+const xmlSorted = ref(false)
+
+// XML 排序操作
+const handleXmlSort = () => {
+  if (xmlFormatRef.value) {
+    xmlFormatRef.value.sort()
+    xmlSorted.value = true
+  }
+}
+
+const handleXmlClearSort = () => {
+  if (xmlFormatRef.value) {
+    xmlFormatRef.value.clearSort()
+    xmlSorted.value = false
+  }
+}
+
+const handleXmlExpandAll = () => {
+  if (xmlFormatRef.value) {
+    xmlFormatRef.value.expandAll()
+  }
+}
+
+const handleXmlCollapseAll = () => {
+  if (xmlFormatRef.value) {
+    xmlFormatRef.value.collapseAll()
+  }
+}
+
+const handleXmlCopy = async () => {
+  if (xmlFormatRef.value) {
+    await xmlFormatRef.value.copyXml()
+    alert('XML 已复制到剪贴板！')
+  }
+}
 </script>
 
 <template>
@@ -99,9 +139,36 @@ const activeTab = ref('json')
           <h3>XML Format Component</h3>
           <p class="description">
             XML 格式化组件，支持 XML 解析、树形展示、语法高亮等功能。
-            工具栏功能已移除，用户可以通过组件暴露的方法自行实现工具栏。
+            <strong>新增：</strong>排序功能支持同时对元素属性和子元素标签进行排序。
           </p>
-          <XmlFormat v-model="xmlExample" theme="github-light" />
+          
+          <!-- XML 工具栏 -->
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <button class="toolbar-btn" @click="handleXmlSort" :disabled="xmlSorted" data-testid="xml-sort-btn">
+                📊 排序 (属性 + 子元素)
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleXmlClearSort" :disabled="!xmlSorted" data-testid="xml-clear-sort-btn">
+                🔄 取消排序
+              </button>
+            </div>
+            <div class="toolbar-group">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleXmlExpandAll" data-testid="xml-expand-btn">
+                📂 展开所有
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleXmlCollapseAll" data-testid="xml-collapse-btn">
+                📁 折叠所有
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleXmlCopy" data-testid="xml-copy-btn">
+                📋 复制 XML
+              </button>
+            </div>
+            <div class="toolbar-status" v-if="xmlSorted" data-testid="xml-sort-status">
+              ✅ 已排序
+            </div>
+          </div>
+          
+          <XmlFormat ref="xmlFormatRef" v-model="xmlExample" theme="github-light" />
         </div>
 
         <!-- SQL Format Tab -->
@@ -221,6 +288,71 @@ const activeTab = ref('json')
   background: #f8f9fa;
   border-radius: 6px;
   border-left: 4px solid #667eea;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e9ecef;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.toolbar-btn {
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.toolbar-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.toolbar-btn:disabled {
+  background: #e9ecef;
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+.toolbar-btn--secondary {
+  background: #6c757d;
+}
+
+.toolbar-btn--secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.toolbar-status {
+  padding: 8px 16px;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #c3e6cb;
 }
 
 .app-footer {

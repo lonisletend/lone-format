@@ -96,15 +96,64 @@ const isSorted = ref<boolean>(false) // 属性排序状态
 // 计算属性
 const isValidXml = computed(() => parseError.value === '')
 
-// 深度排序函数：递归地对所有元素的属性进行排序
+// 深度排序函数：递归地对所有元素的属性和子元素标签进行排序
 const sortXmlAttributes = (data: any): any => {
   if (!data || typeof data !== 'object') {
     return data
   }
 
-  // 如果是数组，递归处理每个元素
+  // 如果是数组（preserveOrder: true 的结构）
   if (Array.isArray(data)) {
-    return data.map(item => sortXmlAttributes(item))
+    // 处理数组中的每个元素
+    const processedArray = data.map(item => sortXmlAttributes(item))
+    
+    // 对数组中的元素按标签名排序
+    // 但要保持特殊节点（?xml, #text, #comment等）的相对位置
+    return processedArray.sort((a, b) => {
+      if (!a || typeof a !== 'object' || !b || typeof b !== 'object') {
+        return 0
+      }
+      
+      // 获取节点的标签名（非特殊key的第一个key）
+      const getTagName = (obj: any): string => {
+        const keys = Object.keys(obj)
+        // 找到第一个非特殊key作为标签名
+        for (const key of keys) {
+          if (!key.startsWith('?') && !key.startsWith(':') && !key.startsWith('#') && !key.startsWith('__')) {
+            return key
+          }
+        }
+        // 如果只有特殊key，返回第一个key
+        return keys[0] || ''
+      }
+      
+      const tagA = getTagName(a)
+      const tagB = getTagName(b)
+      
+      // 特殊节点优先级
+      const specialOrder: Record<string, number> = {
+        '?xml': 0,
+        '#text': 98,
+        '__cdata': 99,
+        '#comment': 100
+      }
+      
+      const aIsSpecial = tagA.startsWith('?') || tagA.startsWith('#') || tagA.startsWith('__')
+      const bIsSpecial = tagB.startsWith('?') || tagB.startsWith('#') || tagB.startsWith('__')
+      
+      if (aIsSpecial && bIsSpecial) {
+        const aOrder = specialOrder[tagA] ?? 50
+        const bOrder = specialOrder[tagB] ?? 50
+        return aOrder - bOrder
+      } else if (aIsSpecial) {
+        return -1
+      } else if (bIsSpecial) {
+        return 1
+      } else {
+        // 普通标签按字母顺序排序
+        return tagA.localeCompare(tagB)
+      }
+    })
   }
 
   // 处理对象
@@ -116,17 +165,18 @@ const sortXmlAttributes = (data: any): any => {
     // 1. XML 声明 (?xml) 始终在前
     // 2. 属性对象 (:@) 始终在标签名之后
     // 3. 文本内容 (#text) 在属性之后
-    // 4. CDATA (#cdata) 在文本之后
+    // 4. CDATA (#cdata 或 __cdata) 在文本之后
     // 5. 注释 (#comment) 在最后
     
-    const aIsSpecial = a.startsWith('?') || a.startsWith(':') || a.startsWith('#')
-    const bIsSpecial = b.startsWith('?') || b.startsWith(':') || b.startsWith('#')
+    const aIsSpecial = a.startsWith('?') || a.startsWith(':') || a.startsWith('#') || a.startsWith('__')
+    const bIsSpecial = b.startsWith('?') || b.startsWith(':') || b.startsWith('#') || b.startsWith('__')
     
     // 特殊 key 优先级顺序
     const specialOrder: Record<string, number> = {
       '?xml': 0,
       ':@': 1,
       '#text': 2,
+      '__cdata': 3,
       '#cdata': 3,
       '#comment': 4
     }
@@ -457,14 +507,22 @@ const clearFilter = () => {
   })
 }
 
-// 启用属性排序
-const sortAttributes = () => {
+// 启用排序
+const sort = () => {
   isSorted.value = true
+  // 排序后重新展开所有节点，因为数组顺序改变会导致路径索引不匹配
+  nextTick(() => {
+    expandAll()
+  })
 }
 
-// 清除属性排序
-const clearSortAttributes = () => {
+// 清除排序
+const clearSort = () => {
   isSorted.value = false
+  // 取消排序后重新展开所有节点，恢复原始顺序的路径
+  nextTick(() => {
+    expandAll()
+  })
 }
 
 // 复制值
@@ -781,9 +839,9 @@ defineExpose({
   filter: applyFilter,
   clearFilter,
 
-  // 属性排序相关方法
-  sortAttributes,
-  clearSortAttributes,
+  // 排序相关方法
+  sort,
+  clearSort,
   isSorted: () => isSorted.value,
 
   // 状态访问方法
