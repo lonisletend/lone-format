@@ -50,6 +50,7 @@ const githubLight: ThemeConfig = {
 
     // 折叠效果
     collapsedBackground: '#ddf4ff', // 折叠信息背景色 - 浅蓝
+    collapsedBackgroundHover: '#b6e3ff', // 折叠信息悬停背景色 - 稍深蓝
     collapsedText: '#0969da',       // 折叠信息文本色 - 蓝色
 
     // 缩进指示线
@@ -101,8 +102,9 @@ const githubDark: ThemeConfig = {
     xmlQuote: '#79c0ff',        // 引号 - 亮蓝色
 
     // 折叠效果
-    collapsedBackground: '#1c2d41', // 折叠信息背景色 - 深蓝
-    collapsedText: '#58a6ff',       // 折叠信息文本色 - 亮蓝色
+    collapsedBackground: '#1c2128', // 折叠信息背景色 - 深蓝
+    collapsedBackgroundHover: '#2d333b', // 折叠信息悬停背景色 - 稍深
+    collapsedText: '#79c0ff',       // 折叠信息文本色 - 亮蓝色
 
     // 缩进指示线
     indentLine: '#30363d',          // 对齐线 - 灰色
@@ -153,8 +155,9 @@ const minLight: ThemeConfig = {
     xmlQuote: '#2563eb',        // 引号 - 蓝色
 
     // 折叠效果
-    collapsedBackground: '#dbeafe', // 折叠信息背景色 - 浅蓝
-    collapsedText: '#1d4ed8',       // 折叠信息文本色 - 蓝色
+    collapsedBackground: '#e0f2fe', // 折叠信息背景色 - 浅蓝
+    collapsedBackgroundHover: '#bae6fd', // 折叠信息悬停背景色 - 稍深蓝
+    collapsedText: '#0284c7',       // 折叠信息文本色 - 蓝色
 
     // 缩进指示线
     indentLine: '#e5e7eb',          // 对齐线 - 灰色
@@ -205,8 +208,9 @@ const slackOchin: ThemeConfig = {
     xmlQuote: '#1264a3',        // 引号 - 蓝色
 
     // 折叠效果
-    collapsedBackground: '#d8eaf5', // 折叠信息背景色 - 浅蓝
-    collapsedText: '#0b4c8c',       // 折叠信息文本色 - 深蓝
+    collapsedBackground: '#ffe8d6', // 折叠信息背景色 - 浅橙
+    collapsedBackgroundHover: '#ffd4b0', // 折叠信息悬停背景色 - 稍深橙
+    collapsedText: '#d73502',       // 折叠信息文本色 - 橙红色
 
     // 缩进指示线
     indentLine: '#e8d5b7',          // 对齐线 - 米色

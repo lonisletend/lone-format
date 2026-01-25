@@ -293,11 +293,7 @@
           ></span>
           <!-- 折叠信息：显示子标签数量 -->
           <span 
-            class="xml-node__collapsed-badge" 
-            :style="{ 
-              backgroundColor: theme.colors.collapsedBackground,
-              color: theme.colors.collapsedText
-            }"
+            class="xml-node__collapsed-badge"
             @click="toggleCollapse()"
             :title="`Click to expand ${collapsedChildrenCount} tag${collapsedChildrenCount > 1 ? 's' : ''}`"
           >{{ collapsedChildrenCount }} tag{{ collapsedChildrenCount > 1 ? 's' : '' }}</span>
@@ -874,6 +870,8 @@ const handleContextMenu = (event: MouseEvent) => {
 }
 
 .xml-node__collapsed-badge {
+  color: v-bind('theme.colors.collapsedText');
+  background-color: v-bind('theme.colors.collapsedBackground');
   margin: 0 6px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -889,6 +887,7 @@ const handleContextMenu = (event: MouseEvent) => {
 .xml-node__collapsed-badge:hover {
   opacity: 0.85;
   transform: scale(1.05);
+  background-color: v-bind('theme.colors.collapsedBackgroundHover');
 }
 
 .xml-node__collapsed {
