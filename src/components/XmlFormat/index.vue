@@ -107,53 +107,67 @@ const sortXmlAttributes = (data: any): any => {
     // 处理数组中的每个元素
     const processedArray = data.map(item => sortXmlAttributes(item))
     
-    // 对数组中的元素按标签名排序
-    // 但要保持特殊节点（?xml, #text, #comment等）的相对位置
-    return processedArray.sort((a, b) => {
-      if (!a || typeof a !== 'object' || !b || typeof b !== 'object') {
-        return 0
+    // 将数组分为两部分：可排序的元素节点 和 不可排序的内容节点（注释、文本等）
+    const sortableElements: Array<{ item: any; originalIndex: number }> = []
+    const contentNodes: Array<{ item: any; originalIndex: number }> = []
+    
+    processedArray.forEach((item, index) => {
+      if (!item || typeof item !== 'object') {
+        contentNodes.push({ item, originalIndex: index })
+        return
       }
       
-      // 获取节点的标签名（非特殊key的第一个key）
+      const keys = Object.keys(item)
+      const tagName = keys.find(key => !key.startsWith('?') && !key.startsWith(':') && !key.startsWith('#') && !key.startsWith('__')) || keys[0] || ''
+      
+      // 注释、文本、CDATA 等内容节点不参与排序
+      if (tagName.startsWith('#') || tagName.startsWith('__')) {
+        contentNodes.push({ item, originalIndex: index })
+      } else if (tagName.startsWith('?')) {
+        // XML 声明等也不参与排序
+        contentNodes.push({ item, originalIndex: index })
+      } else {
+        // 普通元素节点参与排序
+        sortableElements.push({ item, originalIndex: index })
+      }
+    })
+    
+    // 对普通元素节点按标签名排序
+    sortableElements.sort((a, b) => {
       const getTagName = (obj: any): string => {
         const keys = Object.keys(obj)
-        // 找到第一个非特殊key作为标签名
         for (const key of keys) {
           if (!key.startsWith('?') && !key.startsWith(':') && !key.startsWith('#') && !key.startsWith('__')) {
             return key
           }
         }
-        // 如果只有特殊key，返回第一个key
         return keys[0] || ''
       }
       
-      const tagA = getTagName(a)
-      const tagB = getTagName(b)
-      
-      // 特殊节点优先级
-      const specialOrder: Record<string, number> = {
-        '?xml': 0,
-        '#text': 98,
-        '__cdata': 99,
-        '#comment': 100
-      }
-      
-      const aIsSpecial = tagA.startsWith('?') || tagA.startsWith('#') || tagA.startsWith('__')
-      const bIsSpecial = tagB.startsWith('?') || tagB.startsWith('#') || tagB.startsWith('__')
-      
-      if (aIsSpecial && bIsSpecial) {
-        const aOrder = specialOrder[tagA] ?? 50
-        const bOrder = specialOrder[tagB] ?? 50
-        return aOrder - bOrder
-      } else if (aIsSpecial) {
-        return -1
-      } else if (bIsSpecial) {
-        return 1
-      } else {
-        // 普通标签按字母顺序排序
-        return tagA.localeCompare(tagB)
-      }
+      const tagA = getTagName(a.item)
+      const tagB = getTagName(b.item)
+      return tagA.localeCompare(tagB)
     })
+    
+    // 重新组合：按原始索引位置插入内容节点，中间插入排序后的元素节点
+    const result: any[] = []
+    let sortedIndex = 0
+    
+    for (let i = 0; i < processedArray.length; i++) {
+      const contentNode = contentNodes.find(n => n.originalIndex === i)
+      if (contentNode) {
+        // 这个位置是内容节点，直接插入
+        result.push(contentNode.item)
+      } else {
+        // 这个位置原本是元素节点，插入排序后的元素
+        if (sortedIndex < sortableElements.length) {
+          result.push(sortableElements[sortedIndex].item)
+          sortedIndex++
+        }
+      }
+    }
+    
+    return result
   }
 
   // 处理对象
