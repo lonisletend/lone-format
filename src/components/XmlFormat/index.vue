@@ -91,16 +91,98 @@ const filteredXml = ref<ParsedXml | null>(null)
 const filterError = ref<string>('')
 const originalXmlString = ref<string>('') // 保存原始 XML 字符串用于 XPath 查询
 const selfClosingTags = ref<Set<string>>(new Set()) // 保存自闭合标签信息
+const isSorted = ref<boolean>(false) // 属性排序状态
 
 // 计算属性
 const isValidXml = computed(() => parseError.value === '')
 
-// 当前显示的 XML 数据（可能是过滤后的）
+// 深度排序函数：递归地对所有元素的属性进行排序
+const sortXmlAttributes = (data: any): any => {
+  if (!data || typeof data !== 'object') {
+    return data
+  }
+
+  // 如果是数组，递归处理每个元素
+  if (Array.isArray(data)) {
+    return data.map(item => sortXmlAttributes(item))
+  }
+
+  // 处理对象
+  const sorted: any = {}
+  
+  // 对所有 key 进行排序
+  const keys = Object.keys(data).sort((a, b) => {
+    // 保持特殊 key 的顺序：
+    // 1. XML 声明 (?xml) 始终在前
+    // 2. 属性对象 (:@) 始终在标签名之后
+    // 3. 文本内容 (#text) 在属性之后
+    // 4. CDATA (#cdata) 在文本之后
+    // 5. 注释 (#comment) 在最后
+    
+    const aIsSpecial = a.startsWith('?') || a.startsWith(':') || a.startsWith('#')
+    const bIsSpecial = b.startsWith('?') || b.startsWith(':') || b.startsWith('#')
+    
+    // 特殊 key 优先级顺序
+    const specialOrder: Record<string, number> = {
+      '?xml': 0,
+      ':@': 1,
+      '#text': 2,
+      '#cdata': 3,
+      '#comment': 4
+    }
+    
+    if (aIsSpecial && bIsSpecial) {
+      // 两个都是特殊 key，按预定义顺序排序
+      const aOrder = specialOrder[a] ?? 99
+      const bOrder = specialOrder[b] ?? 99
+      return aOrder - bOrder
+    } else if (aIsSpecial) {
+      // a 是特殊 key，b 不是，a 排在前面
+      return -1
+    } else if (bIsSpecial) {
+      // b 是特殊 key，a 不是，b 排在前面
+      return 1
+    } else {
+      // 两个都不是特殊 key，按字母顺序排序
+      return a.localeCompare(b)
+    }
+  })
+  
+  for (const key of keys) {
+    const value = data[key]
+    
+    // 对于属性对象 (:@)，也对其内部的属性名进行排序
+    if (key === ':@' && value && typeof value === 'object' && !Array.isArray(value)) {
+      const sortedAttrs: any = {}
+      const attrKeys = Object.keys(value).sort()
+      for (const attrKey of attrKeys) {
+        sortedAttrs[attrKey] = value[attrKey]
+      }
+      sorted[key] = sortedAttrs
+    } else {
+      // 递归处理其他值
+      sorted[key] = sortXmlAttributes(value)
+    }
+  }
+  
+  return sorted
+}
+
+// 排序后的 XML 数据（不修改原始数据）
+const sortedXml = computed(() => {
+  const baseData = filteredXml.value !== null ? filteredXml.value : parsedXml.value
+  if (!baseData || !isSorted.value) {
+    return baseData
+  }
+  return sortXmlAttributes(baseData)
+})
+
+// 当前显示的 XML 数据（可能是过滤后的或排序后的）
 const displayXml = computed(() => {
   if (filterError.value) {
     return null
   }
-  return filteredXml.value !== null ? filteredXml.value : parsedXml.value
+  return sortedXml.value
 })
 
 // 当前主题
@@ -373,6 +455,16 @@ const clearFilter = () => {
   nextTick(() => {
     expandAll()
   })
+}
+
+// 启用属性排序
+const sortAttributes = () => {
+  isSorted.value = true
+}
+
+// 清除属性排序
+const clearSortAttributes = () => {
+  isSorted.value = false
 }
 
 // 复制值
@@ -688,6 +780,11 @@ defineExpose({
   // 过滤相关方法
   filter: applyFilter,
   clearFilter,
+
+  // 属性排序相关方法
+  sortAttributes,
+  clearSortAttributes,
+  isSorted: () => isSorted.value,
 
   // 状态访问方法
   isValidXml: () => isValidXml.value,
