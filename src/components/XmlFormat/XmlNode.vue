@@ -621,10 +621,10 @@ const isEmptyElement = computed(() => {
          textContent.value === ''
 })
 
-// 是否是自闭合标签
+// 是否是自闭合标签（读取 annotateSelfClosingInfo 注解的精确状态）
 const isSelfClosing = computed(() => {
   if (!isEmptyElement.value) return false
-  return props.selfClosingTags?.has(tagName.value) || false
+  return props.node[':selfClosing'] === true
 })
 
 // 切换展开/折叠
