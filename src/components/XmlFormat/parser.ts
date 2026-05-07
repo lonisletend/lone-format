@@ -318,6 +318,36 @@ export const isEmptyNode = (node: any): boolean => {
 }
 
 /**
+ * 为已解析的 XML 数据（preserveOrder: true 格式）按文档顺序（DFS）注解自闭合状态
+ * 在每个元素对象上添加 ':selfClosing' 键，供 XmlNode 渲染时直接读取
+ * 必须在 parseXml() 之后、渲染前调用一次
+ */
+export const annotateSelfClosingInfo = (data: any[], originalXml: string): void => {
+  const occurrences = extractSelfClosingOccurrences(originalXml)
+  const counters = new Map<string, number>()
+
+  const annotate = (nodeArray: any[]) => {
+    for (const item of nodeArray) {
+      const tagName = Object.keys(item).find(
+        key => !key.startsWith(':') && !key.startsWith('#') && !key.startsWith('__') && !key.startsWith('?')
+      )
+      if (!tagName) continue
+
+      const idx = counters.get(tagName) ?? 0
+      counters.set(tagName, idx + 1)
+      item[':selfClosing'] = occurrences.get(tagName)?.[idx] ?? false
+
+      const children = item[tagName]
+      if (Array.isArray(children) && children.length > 0) {
+        annotate(children)
+      }
+    }
+  }
+
+  annotate(data)
+}
+
+/**
  * 提取原始 XML 中的自闭合标签信息
  */
 export const extractSelfClosingTags = (xmlString: string): Set<string> => {
@@ -332,26 +362,121 @@ export const extractSelfClosingTags = (xmlString: string): Set<string> => {
 }
 
 /**
+ * 按文档顺序提取每个标签每次出现是否为自闭合
+ * 返回 Map<tagName, boolean[]>，boolean[] 中第 n 项对应该标签第 n 次出现（DFS 顺序）
+ *
+ * 与 extractSelfClosingTags 的区别：后者只记录"某标签名是否出现过自闭合"，
+ * 当同名标签中有的自闭合、有的非自闭合时会误判所有同名标签。
+ * 此函数逐次记录，配合 buildXmlFromArray 中的计数器可精确还原。
+ */
+const extractSelfClosingOccurrences = (xmlString: string): Map<string, boolean[]> => {
+  const result = new Map<string, boolean[]>()
+  let i = 0
+
+  while (i < xmlString.length) {
+    // 跳过注释
+    if (xmlString.startsWith('<!--', i)) {
+      const end = xmlString.indexOf('-->', i)
+      i = end !== -1 ? end + 3 : xmlString.length
+      continue
+    }
+    // 跳过 CDATA
+    if (xmlString.startsWith('<![CDATA[', i)) {
+      const end = xmlString.indexOf(']]>', i)
+      i = end !== -1 ? end + 3 : xmlString.length
+      continue
+    }
+    // 跳过处理指令（含 XML 声明）
+    if (xmlString.startsWith('<?', i)) {
+      const end = xmlString.indexOf('?>', i)
+      i = end !== -1 ? end + 2 : xmlString.length
+      continue
+    }
+    // 跳过闭合标签
+    if (xmlString.startsWith('</', i)) {
+      const end = xmlString.indexOf('>', i)
+      i = end !== -1 ? end + 1 : xmlString.length
+      continue
+    }
+    // 处理开始标签（可能是自闭合）
+    if (xmlString[i] === '<') {
+      const tagMatch = xmlString.slice(i + 1).match(/^([a-zA-Z_][a-zA-Z0-9_:.-]*)/)
+      if (tagMatch) {
+        const tagName = tagMatch[1]
+        let j = i + 1 + tagName.length
+        let inStr = false
+        let strChar = ''
+
+        while (j < xmlString.length) {
+          const ch = xmlString[j]
+          if (inStr) {
+            if (ch === strChar) inStr = false
+          } else {
+            if (ch === '"' || ch === "'") {
+              inStr = true
+              strChar = ch
+            } else if (ch === '>') {
+              // 向前跳过空白，判断是否以 / 结尾（自闭合）
+              let k = j - 1
+              while (k > i && (xmlString[k] === ' ' || xmlString[k] === '\t' || xmlString[k] === '\n' || xmlString[k] === '\r')) {
+                k--
+              }
+              const isSelfClosing = xmlString[k] === '/'
+              if (!result.has(tagName)) result.set(tagName, [])
+              result.get(tagName)!.push(isSelfClosing)
+              i = j + 1
+              break
+            }
+          }
+          j++
+        }
+        if (j >= xmlString.length) break
+        continue
+      }
+    }
+    i++
+  }
+
+  return result
+}
+
+/**
  * 从 preserveOrder 数组结构构建格式化的 XML 字符串
  */
 export const buildXmlFromArray = (
   data: any[],
-  options: { indent?: string; level?: number; format?: boolean; selfClosingTags?: Set<string>; originalXml?: string } = {}
+  options: {
+    indent?: string
+    level?: number
+    format?: boolean
+    selfClosingTags?: Set<string>
+    selfClosingOccurrences?: Map<string, boolean[]>
+    selfClosingCounters?: Map<string, number>
+    originalXml?: string
+  } = {}
 ): string => {
   const indent = options.indent !== undefined ? options.indent : '  '
   const level = options.level || 0
   const format = options.format !== false // 默认格式化
   const currentIndent = format ? indent.repeat(level) : ''
   const lineBreak = format ? '\n' : ''
-  
-  // 如果是顶层调用且提供了原始XML，提取自闭合标签信息
+
   let selfClosingTags = options.selfClosingTags
-  if (!selfClosingTags && options.originalXml && level === 0) {
-    selfClosingTags = extractSelfClosingTags(options.originalXml)
+  let selfClosingOccurrences = options.selfClosingOccurrences
+  let selfClosingCounters = options.selfClosingCounters
+
+  // 顶层调用时初始化自闭合跟踪：优先使用逐次出现信息（精确），回退到标签名集合（可能误判）
+  if (level === 0) {
+    if (options.originalXml) {
+      selfClosingOccurrences = extractSelfClosingOccurrences(options.originalXml)
+      selfClosingCounters = new Map()
+    } else if (!selfClosingTags && !selfClosingOccurrences) {
+      // 既无 originalXml 也无任何自闭合信息，所有空元素一律输出配对标签
+    }
   }
-  
+
   let result = ''
-  
+
   for (const item of data) {
     // 处理 XML 声明
     if (item['?xml']) {
@@ -366,7 +491,7 @@ export const buildXmlFromArray = (
       result += `<?xml ${attrStr}?>${lineBreak}`
       continue
     }
-    
+
     // 处理注释
     if (item['#comment']) {
       const commentValue = item['#comment']
@@ -376,14 +501,21 @@ export const buildXmlFromArray = (
       }
       continue
     }
-    
+
     // 处理普通元素
     const tagName = Object.keys(item).find(key => !key.startsWith(':') && !key.startsWith('#') && !key.startsWith('__'))
     if (!tagName) continue
-    
+
+    // 获取当前元素的出现次序并递增计数器（无论是否为空元素都要计数，以维护文档顺序）
+    let occurrenceIndex = 0
+    if (selfClosingOccurrences && selfClosingCounters) {
+      occurrenceIndex = selfClosingCounters.get(tagName) ?? 0
+      selfClosingCounters.set(tagName, occurrenceIndex + 1)
+    }
+
     const children = item[tagName]
     const attributes = item[':@'] || {}
-    
+
     // 构建属性字符串，移除 @_ 前缀
     const attrStr = Object.entries(attributes)
       .map(([key, value]) => {
@@ -392,11 +524,18 @@ export const buildXmlFromArray = (
       })
       .join(' ')
     const attrsPart = attrStr ? ' ' + attrStr : ''
-    
+
     // 检查是否有子元素
     if (!Array.isArray(children) || children.length === 0) {
       // 空元素：根据原始格式决定使用自闭合还是配对标签
-      const isSelfClosing = selfClosingTags && selfClosingTags.has(tagName)
+      let isSelfClosing: boolean
+      if (selfClosingOccurrences) {
+        // 精确模式：按当前元素的出现次序查表
+        isSelfClosing = selfClosingOccurrences.get(tagName)?.[occurrenceIndex] ?? false
+      } else {
+        // 回退模式：标签名级别判断（同名元素共享状态）
+        isSelfClosing = !!(selfClosingTags && selfClosingTags.has(tagName))
+      }
       if (isSelfClosing) {
         result += `${currentIndent}<${tagName}${attrsPart}/>${lineBreak}`
       } else {
@@ -404,15 +543,15 @@ export const buildXmlFromArray = (
       }
       continue
     }
-    
+
     // 检查是否为简单文本节点（包括只有空白的节点）
     const hasOnlyText = children.length === 1 && children[0]['#text'] !== undefined
     const textContent = hasOnlyText ? children[0]['#text'] : ''
     const hasCdata = children.some((child: any) => child['__cdata'])
-    
+
     // 如果文本内容为空字符串（不是只有空格），使用开始和结束标签
     const isEmptyTextNode = hasOnlyText && textContent === ''
-    
+
     if (hasCdata) {
       // 处理 CDATA
       const cdataChild = children.find((child: any) => child['__cdata'])
@@ -427,12 +566,12 @@ export const buildXmlFromArray = (
       // 简单文本节点（包括只有空白的节点）- 单行显示，保留原始文本
       result += `${currentIndent}<${tagName}${attrsPart}>${textContent}</${tagName}>${lineBreak}`
     } else {
-      // 有子元素 - 多行显示
+      // 有子元素 - 多行显示；传递共享的自闭合跟踪状态（计数器是引用传递，跨递归共享）
       result += `${currentIndent}<${tagName}${attrsPart}>${lineBreak}`
-      result += buildXmlFromArray(children, { indent, level: level + 1, format, selfClosingTags })
+      result += buildXmlFromArray(children, { indent, level: level + 1, format, selfClosingTags, selfClosingOccurrences, selfClosingCounters })
       result += `${currentIndent}</${tagName}>${lineBreak}`
     }
   }
-  
+
   return result
 }

@@ -51,7 +51,7 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import XmlNode from './XmlNode.vue'
 import type { ThemeType, ParsedXml, FilterConfig } from './types'
 import { getTheme } from './themes'
-import { validateXml, parseXml, buildXml, compressXml, formatXml, buildXmlFromArray, extractSelfClosingTags } from './parser'
+import { validateXml, parseXml, buildXml, compressXml, formatXml, buildXmlFromArray, extractSelfClosingTags, annotateSelfClosingInfo } from './parser'
 
 interface Props {
   modelValue: string
@@ -317,6 +317,10 @@ const parseXmlString = (xmlString: string) => {
 
     // 解析
     parsedXml.value = parseXml(xmlString)
+    // 为每个元素注解精确的自闭合状态，供 XmlNode 渲染使用
+    if (Array.isArray(parsedXml.value)) {
+      annotateSelfClosingInfo(parsedXml.value, xmlString)
+    }
     parseError.value = ''
 
     // 清除之前的过滤结果
@@ -406,7 +410,7 @@ const copyXml = async () => {
 
     // 使用新的 buildXmlFromArray 处理 preserveOrder: true 的数组结构
     const xmlString = Array.isArray(dataToUse)
-      ? buildXmlFromArray(dataToUse, { indent: '  ', selfClosingTags: selfClosingTags.value })
+      ? buildXmlFromArray(dataToUse, { indent: '  ', originalXml: originalXmlString.value || undefined })
       : buildXml(dataToUse, { format: true, indentBy: '  ' })
 
     await navigator.clipboard.writeText(xmlString)
@@ -602,9 +606,9 @@ const handleTagNameUpdate = (path: string, oldTag: string, newTag: string) => {
     }
     
     // 重新生成 XML 字符串并触发更新
-    const xmlString = buildXmlFromArray(parsedXml.value, { 
-      indent: '  ', 
-      selfClosingTags: selfClosingTags.value 
+    const xmlString = buildXmlFromArray(parsedXml.value, {
+      indent: '  ',
+      originalXml: originalXmlString.value || undefined
     })
     emit('update:modelValue', xmlString)
   } catch (error) {
@@ -655,7 +659,7 @@ const handleAttributeNameUpdate = (path: string, oldAttrName: string, newAttrNam
     }
     
     // 重新生成 XML 字符串并触发更新
-    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', selfClosingTags: selfClosingTags.value })
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', originalXml: originalXmlString.value || undefined })
     emit('update:modelValue', xmlString)
   } catch (error) {
     console.error('Failed to update attribute name:', error)
@@ -704,7 +708,7 @@ const handleAttributeValueUpdate = (path: string, attrName: string, newValue: st
     }
     
     // 重新生成 XML 字符串并触发更新
-    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', selfClosingTags: selfClosingTags.value })
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', originalXml: originalXmlString.value || undefined })
     emit('update:modelValue', xmlString)
   } catch (error) {
     console.error('Failed to update attribute value:', error)
@@ -763,7 +767,7 @@ const handleTextContentUpdate = (path: string, newContent: string) => {
     }
     
     // 重新生成 XML 字符串并触发更新
-    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', selfClosingTags: selfClosingTags.value })
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', originalXml: originalXmlString.value || undefined })
     emit('update:modelValue', xmlString)
   } catch (error) {
     console.error('Failed to update text content:', error)
@@ -827,7 +831,7 @@ const handleCdataContentUpdate = (path: string, newContent: string) => {
     }
     
     // 重新生成 XML 字符串并触发更新
-    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', selfClosingTags: selfClosingTags.value })
+    const xmlString = buildXmlFromArray(parsedXml.value, { indent: '  ', originalXml: originalXmlString.value || undefined })
     emit('update:modelValue', xmlString)
   } catch (error) {
     console.error('Failed to update CDATA content:', error)

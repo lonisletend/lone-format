@@ -40,6 +40,8 @@ const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
   <book id="2" category="web">
     <title lang="en">Vue.js 3 Cookbook</title>
     <author>Heitor Ramon Ribeiro</author>
+    <Field source="o.test"></Field>
+    <Field source="o.test1"/>
   </book>
 </library>`)
 
