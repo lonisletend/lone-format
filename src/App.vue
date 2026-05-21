@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
 import XmlFormat from './components/XmlFormat/index.vue'
 import SqlFormat from './components/SqlFormat/index.vue'
@@ -60,6 +60,34 @@ LIMIT 10;`)
 
 // Tab 管理
 const activeTab = ref('json')
+const showTestcaseInput = ref(false)
+
+const currentTestcase = computed({
+  get: () => {
+    if (activeTab.value === 'json') return jsonExample.value
+    if (activeTab.value === 'xml') return xmlExample.value
+    return sqlExample.value
+  },
+  set: (value: string) => {
+    if (activeTab.value === 'json') {
+      jsonExample.value = value
+      return
+    }
+
+    if (activeTab.value === 'xml') {
+      xmlExample.value = value
+      return
+    }
+
+    sqlExample.value = value
+  }
+})
+
+const currentInputPlaceholder = computed(() => {
+  if (activeTab.value === 'json') return '请输入 JSON 测试用例...'
+  if (activeTab.value === 'xml') return '请输入 XML 测试用例...'
+  return '请输入 SQL 测试用例...'
+})
 
 // 主题管理
 const jsonTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
@@ -79,6 +107,9 @@ const jsonFormatRef = ref()
 
 // XML 组件引用
 const xmlFormatRef = ref()
+
+// SQL 组件引用
+const sqlFormatRef = ref()
 
 // XML 排序状态
 const xmlSorted = ref(false)
@@ -129,6 +160,37 @@ const handleXmlCopy = async () => {
     alert('XML 已复制到剪贴板！')
   }
 }
+
+const handleSqlExpandAll = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.expandAll()
+  }
+}
+
+const handleSqlCollapseAll = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.collapseAll()
+  }
+}
+
+const handleSqlFormat = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.formatSource()
+  }
+}
+
+const handleSqlCompress = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.compressSource()
+  }
+}
+
+const handleSqlCopy = async () => {
+  if (sqlFormatRef.value) {
+    await sqlFormatRef.value.copySql()
+    alert('SQL 已复制到剪贴板！')
+  }
+}
 </script>
 
 <template>
@@ -150,6 +212,22 @@ const handleXmlCopy = async () => {
         <button :class="['tab-btn', { 'tab-btn--active': activeTab === 'sql' }]" @click="activeTab = 'sql'">
           💾 SQL Format
         </button>
+      </div>
+
+      <div class="testcase-input-toggle">
+        <button class="toolbar-btn toolbar-btn--secondary" @click="showTestcaseInput = !showTestcaseInput">
+          {{ showTestcaseInput ? '✖ 关闭输入' : '✏️ 输入测试用例' }}
+        </button>
+      </div>
+
+      <div v-if="showTestcaseInput" class="testcase-input-panel">
+        <label class="testcase-input-label">当前测试用例（{{ activeTab.toUpperCase() }}，实时应用）</label>
+        <textarea
+          v-model="currentTestcase"
+          class="testcase-input"
+          :placeholder="currentInputPlaceholder"
+          spellcheck="false"
+        ></textarea>
       </div>
 
       <!-- Tab 内容 -->
@@ -241,6 +319,23 @@ const handleXmlCopy = async () => {
           <!-- SQL 工具栏 -->
           <div class="toolbar">
             <div class="toolbar-group">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlExpandAll">
+                📂 展开所有
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCollapseAll">
+                📁 折叠所有
+              </button>
+              <button class="toolbar-btn" @click="handleSqlFormat">
+                ✨ 格式化
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCompress">
+                🗜️ 压缩
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCopy">
+                📋 复制 SQL
+              </button>
+            </div>
+            <div class="toolbar-group">
               <label class="theme-label">主题：</label>
               <select v-model="sqlTheme" class="theme-select">
                 <option v-for="option in themeOptions" :key="option.value" :value="option.value">
@@ -250,7 +345,7 @@ const handleXmlCopy = async () => {
             </div>
           </div>
           
-          <SqlFormat v-model="sqlExample" :theme="sqlTheme" dialect="mysql" />
+          <SqlFormat ref="sqlFormatRef" v-model="sqlExample" :theme="sqlTheme" dialect="mysql" />
         </div>
       </div>
     </main>
@@ -425,6 +520,47 @@ const handleXmlCopy = async () => {
   font-size: 14px;
   font-weight: 500;
   border: 1px solid #c3e6cb;
+}
+
+.testcase-input-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.testcase-input-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.testcase-input-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.testcase-input {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: white;
+  color: #24292f;
+  font-family: Monaco, Consolas, 'Lucida Console', 'Courier New', ui-monospace, SFMono-Regular, 'SF Mono', 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.testcase-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .theme-label {
