@@ -4,7 +4,7 @@
  */
 
 import { format } from 'sql-formatter'
-import type { SqlClause, ParsedSql, SqlFormatOptions } from './types'
+import type { SqlClause, SqlBodySegment, ParsedSql, SqlFormatOptions } from './types'
 
 /**
  * SQL 关键字列表（用于基础验证）
@@ -357,7 +357,6 @@ const parseInsertValues = (content: string, baseIndex: number): SqlClause[] => {
   let currentValue = ''
   let inString = false
   let stringChar = ''
-  let tupleStart = -1  // 记录当前元组的起始位置
   
   for (let i = 0; i < remaining.length; i++) {
     const char = remaining[i]
@@ -376,7 +375,6 @@ const parseInsertValues = (content: string, baseIndex: number): SqlClause[] => {
     if (!inString) {
       if (char === '(' && depth === 0) {
         // 开始一个新的元组
-        tupleStart = i
         depth++
         currentValue = char
       } else if (char === '(') {
@@ -413,7 +411,6 @@ const parseInsertValues = (content: string, baseIndex: number): SqlClause[] => {
             valueIndex++
           }
           currentValue = ''
-          tupleStart = -1
           
           // 跳过已处理的标点符号
           if (punctuation) {
@@ -437,186 +434,303 @@ const parseInsertValues = (content: string, baseIndex: number): SqlClause[] => {
 }
 
 /**
- * 解析 SQL 为子句结构
- * 使用 sql-formatter 格式化后进行解析
+ * 规范化 JOIN 子句展示：将 ON 条件拆分到新行。
+ * 仅在 ON 与 JOIN 同行且当前子句中还没有独立 ON 行时生效。
  */
-export const parseSqlClauses = (sqlString: string): ParsedSql => {
+const normalizeJoinClauseContent = (clauseType: SqlClause['type'], clauseContent: string): string => {
+  void clauseType
+
+  // 已经存在独立 ON 行时，不重复处理
+  if (/\n\s*ON\b/i.test(clauseContent)) {
+    return clauseContent
+  }
+
+  // 仅拆分第一个 ON，避免误拆条件表达式中的其他单词。
+  // ON 行复用 JOIN 行的前导缩进，确保两者对齐。
+  return clauseContent.replace(
+    /^(\s*)((?:INNER|LEFT|RIGHT|FULL|CROSS|OUTER)?\s*JOIN\b[^\n]*?)\s+ON\b\s*/gim,
+    '$1$2\n$1ON '
+  )
+}
+
+/**
+ * 计算一行 SQL 的括号深度变化（忽略字符串中的括号）。
+ */
+const getParenDepthDelta = (line: string): number => {
+  let delta = 0
+  let inString = false
+  let stringChar = ''
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    const prevChar = i > 0 ? line[i - 1] : ''
+
+    if ((char === "'" || char === '"') && prevChar !== '\\') {
+      if (!inString) {
+        inString = true
+        stringChar = char
+      } else if (char === stringChar) {
+        inString = false
+        stringChar = ''
+      }
+      continue
+    }
+
+    if (!inString) {
+      if (char === '(') delta++
+      if (char === ')') delta--
+    }
+  }
+
+  return delta
+}
+
+/**
+ * 查找文本中处于最外层（深度 0→1）的括号对，忽略字符串字面量内的括号。
+ */
+const findTopLevelParens = (text: string): Array<{ open: number; close: number }> => {
+  const result: Array<{ open: number; close: number }> = []
+  let depth = 0
+  let openIndex = -1
+  let inString = false
+  let stringChar = ''
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    const prev = i > 0 ? text[i - 1] : ''
+
+    if ((char === "'" || char === '"') && prev !== '\\') {
+      if (!inString) {
+        inString = true
+        stringChar = char
+      } else if (char === stringChar) {
+        inString = false
+        stringChar = ''
+      }
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === '(') {
+      if (depth === 0) openIndex = i
+      depth++
+    } else if (char === ')') {
+      depth--
+      if (depth === 0 && openIndex >= 0) {
+        result.push({ open: openIndex, close: i })
+        openIndex = -1
+      }
+    }
+  }
+
+  return result
+}
+
+/**
+ * 判断括号内容是否是 SQL 子查询（区别于函数调用、IN 列表等）
+ */
+const isSqlSubquery = (innerText: string): boolean => {
+  const trimmed = innerText.trim()
+  if (!trimmed) return false
+  if (/^(SELECT|WITH)\b/i.test(trimmed)) return true
+  return /\n\s*(SELECT|FROM|WHERE|JOIN|UNION|INTERSECT|EXCEPT)\b/i.test(innerText)
+}
+
+/**
+ * 解析子句正文：在其"首行之外"的内容中寻找子查询括号，将子查询内部递归解析为嵌套子句。
+ * 仅当确实存在子查询时才设置 clause.body。
+ */
+const processClauseBody = (clause: SqlClause): void => {
+  const lines = clause.content.split('\n')
+  let firstNonEmptyIdx = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim()) {
+      firstNonEmptyIdx = i
+      break
+    }
+  }
+  if (firstNonEmptyIdx < 0) return
+
+  const restContent = lines.slice(firstNonEmptyIdx + 1).join('\n')
+  if (!restContent) return
+
+  const parens = findTopLevelParens(restContent)
+  const subqueryParens = parens.filter(p =>
+    isSqlSubquery(restContent.slice(p.open + 1, p.close))
+  )
+  if (subqueryParens.length === 0) return
+
+  const body: SqlBodySegment[] = []
+  let cursor = 0
+  const basePath = clause.path || 'clause'
+
+  subqueryParens.forEach((paren, idx) => {
+    // 括号前的文本（包含 `(`）
+    if (paren.open + 1 > cursor) {
+      body.push({ kind: 'text', text: restContent.slice(cursor, paren.open + 1) })
+    }
+
+    // 递归解析括号内部内容
+    const innerText = restContent.slice(paren.open + 1, paren.close)
+    const innerClauses = splitIntoClauses(innerText, `${basePath}-sub${idx}-`)
+    for (const innerClause of innerClauses) {
+      body.push({ kind: 'clause', clause: innerClause })
+    }
+
+    cursor = paren.close
+  })
+
+  if (cursor < restContent.length) {
+    body.push({ kind: 'text', text: restContent.slice(cursor) })
+  }
+
+  clause.body = body
+}
+
+/**
+ * 将已格式化的 SQL 文本按主要子句切分（不再进行 formatSql 调用，便于递归复用）
+ */
+const splitIntoClauses = (formattedSql: string, pathPrefix: string): SqlClause[] => {
   const clauses: SqlClause[] = []
-  
-  try {
-    // 首先格式化 SQL 以便更好地解析
-    const formatted = formatSql(sqlString, { keywordCase: 'upper' })
-    const lines = formatted.split('\n')
-    
-    let currentClause: SqlClause | null = null
-    let currentContent: string[] = []
-    let pendingComments: string[] = []
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim()
-      
-      // 跳过空行（但保留在内容中以保持格式）
-      if (!trimmedLine) {
-        if (currentClause) {
-          currentContent.push(line)
+  const lines = formattedSql.split('\n')
+
+  let currentClause: SqlClause | null = null
+  let currentContent: string[] = []
+  let pendingComments: string[] = []
+  let parenDepth = 0
+
+  const sortedClauses = [...MAJOR_CLAUSES].sort((a, b) => b.length - a.length)
+
+  const finalizeCurrent = () => {
+    if (!currentClause || currentContent.length === 0) return
+
+    let clauseContent = currentContent.join('\n')
+    clauseContent = normalizeJoinClauseContent(currentClause.type, clauseContent)
+    currentClause.content = clauseContent
+    currentClause.raw = clauseContent
+
+    // INSERT INTO ... VALUES 的特殊处理
+    if (currentClause.type === 'INSERT INTO' && /\bVALUES\b/i.test(clauseContent)) {
+      const insertMatch = clauseContent.match(/^(.*?\bINSERT\s+INTO\s+[^(]+\s*\([^)]+\))/is)
+      if (insertMatch) {
+        const insertClause: SqlClause = {
+          type: 'INSERT INTO',
+          content: insertMatch[1].trim(),
+          raw: insertMatch[1].trim(),
+          collapsible: true,
+          path: `${pathPrefix}clause-${clauses.length}`,
         }
-        continue
-      }
-      
-      // 检查是否是注释行
-      const isComment = trimmedLine.startsWith('--') || trimmedLine.startsWith('/*')
-      
-      if (isComment) {
-        // 如果还没有当前子句，缓存注释
-        if (!currentClause) {
-          pendingComments.push(line)
-        } else {
-          currentContent.push(line)
+        clauses.push(insertClause)
+
+        const valuesContent = clauseContent.slice(insertMatch[1].length).trim()
+        const baseIndex = clauses.length
+        const valueClauses = parseInsertValues(valuesContent, baseIndex)
+        for (let i = 0; i < valueClauses.length; i++) {
+          valueClauses[i].path = `${pathPrefix}clause-${baseIndex + i}`
         }
-        continue
+        clauses.push(...valueClauses)
+        return
       }
-      
-      // 检查是否是新的主要子句
-      let isNewClause = false
-      let clauseType: SqlClause['type'] = 'UNKNOWN'
-      
-      // 按长度降序排序，确保先匹配更长的短语
-      const sortedClauses = [...MAJOR_CLAUSES].sort((a, b) => b.length - a.length)
-      
+    }
+
+    processClauseBody(currentClause)
+    clauses.push(currentClause)
+  }
+
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+
+    if (!trimmedLine) {
+      if (currentClause) currentContent.push(line)
+      continue
+    }
+
+    const isComment = trimmedLine.startsWith('--') || trimmedLine.startsWith('/*')
+    if (isComment) {
+      if (!currentClause) pendingComments.push(line)
+      else currentContent.push(line)
+      continue
+    }
+
+    let isNewClause = false
+    let clauseType: SqlClause['type'] = 'UNKNOWN'
+
+    if (parenDepth === 0) {
       for (const majorClause of sortedClauses) {
         const regex = new RegExp(`^${majorClause}\\b`, 'i')
         if (regex.test(trimmedLine)) {
           isNewClause = true
-          // 处理特殊的多词子句类型
-          if (majorClause.includes(' ')) {
-            clauseType = majorClause.toUpperCase() as SqlClause['type']
-          } else {
-            clauseType = majorClause.toUpperCase() as SqlClause['type']
-          }
+          clauseType = majorClause.toUpperCase() as SqlClause['type']
           break
         }
       }
-      
-      if (isNewClause) {
-        // 保存之前的子句
-        if (currentClause && currentContent.length > 0) {
-          const clauseContent = currentContent.join('\n')
-          currentClause.content = clauseContent
-          currentClause.raw = clauseContent
-          
-          // 检查是否是 INSERT INTO 子句，如果是则需要特殊处理 VALUES
-          if (currentClause.type === 'INSERT INTO' && /\bVALUES\b/i.test(clauseContent)) {
-            // 分离 INSERT INTO 部分和 VALUES 部分
-            const insertMatch = clauseContent.match(/^(.*?\bINSERT\s+INTO\s+[^(]+\s*\([^)]+\))/is)
-            if (insertMatch) {
-              // 添加 INSERT INTO 子句
-              clauses.push({
-                type: 'INSERT INTO',
-                content: insertMatch[1].trim(),
-                raw: insertMatch[1].trim(),
-                collapsible: true,
-                path: `clause-${clauses.length}`,
-              })
-              
-              // 解析 VALUES 部分
-              const valuesContent = clauseContent.slice(insertMatch[1].length).trim()
-              const valueClauses = parseInsertValues(valuesContent, clauses.length)
-              clauses.push(...valueClauses)
-            } else {
-              clauses.push(currentClause)
-            }
-          } else {
-            clauses.push(currentClause)
-          }
-        }
-        
-        // 如果有待处理的注释，将其作为独立的不可折叠子句添加
-        if (pendingComments.length > 0) {
-          clauses.push({
-            type: 'UNKNOWN',
-            content: pendingComments.join('\n'),
-            raw: pendingComments.join('\n'),
-            collapsible: false,
-            path: `clause-${clauses.length}`,
-          })
-          pendingComments = []
-        }
-        
-        // 开始新的子句
-        currentContent = [line]
-        currentClause = {
-          type: clauseType,
-          content: '',
-          raw: '',
-          collapsible: true,
-          path: `clause-${clauses.length}`,
-        }
-      } else if (currentClause) {
-        // 继续当前子句
-        currentContent.push(line)
-      } else {
-        // 没有当前子句，创建一个未知类型的子句（用于注释等）
-        currentContent = [...pendingComments, line]
-        pendingComments = []
-        currentClause = {
+    }
+
+    if (isNewClause) {
+      finalizeCurrent()
+
+      if (pendingComments.length > 0) {
+        clauses.push({
           type: 'UNKNOWN',
-          content: '',
-          raw: '',
+          content: pendingComments.join('\n'),
+          raw: pendingComments.join('\n'),
           collapsible: false,
-          path: `clause-${clauses.length}`,
-        }
+          path: `${pathPrefix}clause-${clauses.length}`,
+        })
+        pendingComments = []
       }
-    }
-    
-    // 保存最后一个子句
-    if (currentClause && currentContent.length > 0) {
-      const clauseContent = currentContent.join('\n')
-      currentClause.content = clauseContent
-      currentClause.raw = clauseContent
-      
-      // 检查是否是 INSERT INTO 子句，如果是则需要特殊处理 VALUES
-      if (currentClause.type === 'INSERT INTO' && /\bVALUES\b/i.test(clauseContent)) {
-        // 分离 INSERT INTO 部分和 VALUES 部分
-        const insertMatch = clauseContent.match(/^(.*?\bINSERT\s+INTO\s+[^(]+\s*\([^)]+\))/is)
-        if (insertMatch) {
-          // 添加 INSERT INTO 子句
-          clauses.push({
-            type: 'INSERT INTO',
-            content: insertMatch[1].trim(),
-            raw: insertMatch[1].trim(),
-            collapsible: true,
-            path: `clause-${clauses.length}`,
-          })
-          
-          // 解析 VALUES 部分
-          const valuesContent = clauseContent.slice(insertMatch[1].length).trim()
-          const valueClauses = parseInsertValues(valuesContent, clauses.length)
-          clauses.push(...valueClauses)
-        } else {
-          clauses.push(currentClause)
-        }
-      } else {
-        clauses.push(currentClause)
+
+      currentContent = [line]
+      currentClause = {
+        type: clauseType,
+        content: '',
+        raw: '',
+        collapsible: true,
+        path: `${pathPrefix}clause-${clauses.length}`,
       }
-    }
-    
-    // 如果还有待处理的注释，添加为独立子句
-    if (pendingComments.length > 0) {
-      clauses.push({
+    } else if (currentClause) {
+      currentContent.push(line)
+    } else {
+      currentContent = [...pendingComments, line]
+      pendingComments = []
+      currentClause = {
         type: 'UNKNOWN',
-        content: pendingComments.join('\n'),
-        raw: pendingComments.join('\n'),
+        content: '',
+        raw: '',
         collapsible: false,
-        path: `clause-${clauses.length}`,
-      })
+        path: `${pathPrefix}clause-${clauses.length}`,
+      }
     }
-    
-    return {
-      clauses,
-      raw: sqlString,
-    }
+
+    parenDepth = Math.max(0, parenDepth + getParenDepthDelta(line))
+  }
+
+  finalizeCurrent()
+
+  if (pendingComments.length > 0) {
+    clauses.push({
+      type: 'UNKNOWN',
+      content: pendingComments.join('\n'),
+      raw: pendingComments.join('\n'),
+      collapsible: false,
+      path: `${pathPrefix}clause-${clauses.length}`,
+    })
+  }
+
+  return clauses
+}
+
+/**
+ * 解析 SQL 为子句结构
+ * 使用 sql-formatter 格式化后进行解析；子查询内部递归拆分为嵌套子句。
+ */
+export const parseSqlClauses = (sqlString: string): ParsedSql => {
+  try {
+    const formatted = formatSql(sqlString, { keywordCase: 'upper' })
+    const clauses = splitIntoClauses(formatted, '')
+    return { clauses, raw: sqlString }
   } catch (error) {
-    // 解析失败时返回整个 SQL 作为单个未知子句
     return {
       clauses: [
         {

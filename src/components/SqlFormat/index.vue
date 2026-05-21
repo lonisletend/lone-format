@@ -10,34 +10,14 @@
       <!-- SQL 子句结构展示 -->
       <div v-else class="sql-format__viewer">
         <div v-if="parsedClauses.length > 0" class="sql-format__clauses">
-          <div
+          <SqlClauseNode
             v-for="clause in parsedClauses"
             :key="clause.path"
-            class="sql-format__clause"
-          >
-            <div class="sql-format__clause-header" @click="clause.collapsible && toggleClause(clause.path || '')">
-              <button
-                v-if="clause.collapsible"
-                class="sql-format__toggle-btn"
-                @click.stop="toggleClause(clause.path || '')"
-                :title="isClauseExpanded(clause.path || '') ? 'Collapse' : 'Expand'"
-              >
-                <span class="sql-format__toggle-icon" :class="{
-                  'sql-format__toggle-icon--expanded': isClauseExpanded(clause.path || '')
-                }">▶</span>
-              </button>
-              <span v-else class="sql-format__toggle-spacer"></span>
-              <div class="sql-format__clause-keyword">
-                <pre class="sql-format__clause-code"><code v-html="getClauseDisplayContent(clause)"></code></pre>
-              </div>
-            </div>
-            <div
-              v-if="isClauseExpanded(clause.path || '') && getClauseRestContent(clause)"
-              class="sql-format__clause-content"
-            >
-              <pre class="sql-format__clause-code"><code v-html="highlightSql(getClauseRestContent(clause))"></code></pre>
-            </div>
-          </div>
+            :clause="clause"
+            :expanded-clauses="expandedClauses"
+            :theme="currentTheme"
+            @toggle="toggleClause"
+          />
         </div>
         <pre v-else class="sql-format__code"><code v-html="highlightSql(props.modelValue)"></code></pre>
       </div>
@@ -50,6 +30,24 @@ import { ref, computed, watch } from 'vue'
 import type { ThemeType, SqlDialect, SqlClause } from './types'
 import { getTheme } from './themes'
 import { validateSql, formatSql, compressSql, tokenizeSql, parseSqlClauses } from './parser'
+import SqlClauseNode from './SqlClauseNode.vue'
+
+// 递归收集所有（含嵌套）子句的 path
+const collectAllPaths = (clauses: SqlClause[]): string[] => {
+  const paths: string[] = []
+  const walk = (list: SqlClause[]) => {
+    for (const c of list) {
+      if (c.path) paths.push(c.path)
+      if (c.body) {
+        for (const seg of c.body) {
+          if (seg.kind === 'clause') walk([seg.clause])
+        }
+      }
+    }
+  }
+  walk(clauses)
+  return paths
+}
 
 interface Props {
   modelValue: string
@@ -120,8 +118,8 @@ const parseSqlString = (sqlString: string) => {
       tabWidth: props.tabWidth,
     })
     
-    // 默认展开所有子句
-    expandedClauses.value = new Set(parsed.clauses.map(c => c.path || ''))
+    // 默认展开所有子句（含嵌套子查询内部的子句）
+    expandedClauses.value = new Set(collectAllPaths(parsed.clauses))
     
     parseError.value = ''
   } catch (error) {
@@ -194,65 +192,9 @@ const toggleClause = (path: string) => {
   expandedClauses.value = new Set(expandedClauses.value)
 }
 
-// 检查子句是否展开
-const isClauseExpanded = (path: string): boolean => {
-  return expandedClauses.value.has(path)
-}
-
-// 获取子句的第一行（用于显示在折叠按钮旁边）
-const getClauseFirstLine = (clause: SqlClause): string => {
-  const lines = clause.content.split('\n')
-  if (lines.length === 0) return ''
-  
-  // 返回第一个非空行（包括注释）
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed) {
-      return line
-    }
-  }
-  
-  return ''
-}
-
-// 获取子句显示内容（包括折叠时的省略号）
-const getClauseDisplayContent = (clause: SqlClause): string => {
-  const firstLine = getClauseFirstLine(clause)
-  const isExpanded = isClauseExpanded(clause.path || '')
-  const hasMoreContent = !!getClauseRestContent(clause)
-  
-  // 如果折叠且有更多内容，在高亮后的内容末尾添加省略号
-  if (clause.collapsible && !isExpanded && hasMoreContent) {
-    const highlighted = highlightSql(firstLine)
-    return `${highlighted}<span style="color: ${currentTheme.value.colors.textSecondary}; opacity: 0.6; font-style: italic; margin-left: 4px;"> ...</span>`
-  }
-  
-  return highlightSql(firstLine)
-}
-
-// 获取子句的剩余内容（除第一行外的所有内容）
-const getClauseRestContent = (clause: SqlClause): string => {
-  const lines = clause.content.split('\n')
-  if (lines.length <= 1) return ''
-  
-  // 找到第一个非空行的索引（包括注释）
-  let firstLineIndex = 0
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim()
-    if (trimmed) {
-      firstLineIndex = i
-      break
-    }
-  }
-  
-  // 返回第一行之后的所有内容
-  const restLines = lines.slice(firstLineIndex + 1)
-  return restLines.join('\n')
-}
-
-// 展开所有子句
+// 展开所有子句（含嵌套）
 const expandAll = () => {
-  expandedClauses.value = new Set(parsedClauses.value.map(c => c.path || ''))
+  expandedClauses.value = new Set(collectAllPaths(parsedClauses.value))
   emit('expand-all')
 }
 
@@ -433,66 +375,19 @@ defineExpose({
   align-items: flex-start;
   gap: 6px;
   padding: 2px 0;
+}
+
+.sql-format__clause-header--collapsible {
   cursor: pointer;
 }
 
-.sql-format__clause-header:hover .sql-format__toggle-btn {
+.sql-format__clause-header--collapsible:hover {
   opacity: 0.8;
 }
 
 .sql-format__clause-keyword {
   flex: 1;
   min-width: 0;
-}
-
-.sql-format__toggle-btn {
-  flex-shrink: 0;
-  width: 16px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  color: v-bind('currentTheme.colors.textSecondary');
-  opacity: 0.5;
-  transition: all 0.15s ease;
-  font-size: 9px;
-}
-
-.sql-format__toggle-btn:hover {
-  opacity: 1;
-}
-
-.sql-format__toggle-btn:focus {
-  outline: none;
-  opacity: 1;
-}
-
-.sql-format__toggle-btn:focus-visible {
-  outline: 2px solid v-bind('currentTheme.colors.buttonPrimary');
-  outline-offset: 2px;
-  opacity: 1;
-  border-radius: 2px;
-}
-
-.sql-format__toggle-icon {
-  display: inline-block;
-  transition: transform 0.15s ease;
-  transform: rotate(0deg);
-  user-select: none;
-}
-
-.sql-format__toggle-icon--expanded {
-  transform: rotate(90deg);
-}
-
-.sql-format__toggle-spacer {
-  flex-shrink: 0;
-  width: 16px;
-  height: 20px;
 }
 
 .sql-format__clause-code {
@@ -513,8 +408,12 @@ defineExpose({
 }
 
 .sql-format__clause-content {
-  padding: 0 0 0 22px;
+  padding: 0;
   background-color: transparent;
+}
+
+.sql-format__clause-content--collapsible {
+  cursor: default;
 }
 
 /* 响应式调整 */

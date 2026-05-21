@@ -33,23 +33,33 @@ export type SqlClauseType =
   | 'UNKNOWN'
 
 /**
+ * 子句正文片段：要么是普通文本（括号、别名等），要么是嵌套的子句（子查询内部）
+ */
+export type SqlBodySegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'clause'; clause: SqlClause }
+
+/**
  * SQL 子句节点接口
  */
 export interface SqlClause {
   // 子句类型
   type: SqlClauseType
-  
+
   // 子句内容
   content: string
-  
+
   // 原始文本
   raw: string
-  
+
   // 是否可折叠
   collapsible: boolean
-  
+
   // 内部使用：用于树形展示的路径
   path?: string
+
+  // 正文片段（仅当包含子查询时存在）：除首行外的内容拆分为文本/嵌套子句序列
+  body?: SqlBodySegment[]
 }
 
 /**

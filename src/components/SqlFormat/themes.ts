@@ -140,9 +140,9 @@ const minLight: ThemeConfig = {
     errorBackground: '#fef2f2',
 
     // SQL 语法高亮 - 简约配色（与 JSON 对应）
-    sqlKeyword: '#ef4444',        // 关键字 - 对应 Boolean 红色系
+    sqlKeyword: '#22c55e',        // 关键字 - 对应 Boolean 红色系
     sqlFunction: '#8b5cf6',       // 函数 - 对应 Boolean 紫色
-    sqlString: '#22c55e',         // 字符串 - 对应 String 绿色
+    sqlString: '#ef4444',         // 字符串 - 对应 String 绿色
     sqlNumber: '#3b82f6',         // 数字 - 对应 Number 蓝色
     sqlComment: '#6b7280',        // 注释 - 对应 Null 灰色
     sqlOperator: '#ef4444',       // 操作符 - 红色
