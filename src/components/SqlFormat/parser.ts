@@ -571,14 +571,19 @@ const processClauseBody = (clause: SqlClause): void => {
       body.push({ kind: 'text', text: restContent.slice(cursor, paren.open + 1) })
     }
 
-    // 递归解析括号内部内容
-    const innerText = restContent.slice(paren.open + 1, paren.close)
+    // 找到 `)` 所在行的行首，用于把该行的前导缩进归入 body[last]，让 ( 与 ) 视觉对齐
+    const closeLineStart = restContent.lastIndexOf('\n', paren.close - 1) + 1
+    const isMultiLineSubquery = closeLineStart > paren.open
+
+    // 递归解析括号内部内容（多行时不包含 `)` 行的前导缩进 + 前置 `\n`）
+    const innerEnd = isMultiLineSubquery ? closeLineStart - 1 : paren.close
+    const innerText = restContent.slice(paren.open + 1, innerEnd)
     const innerClauses = splitIntoClauses(innerText, `${basePath}-sub${idx}-`)
     for (const innerClause of innerClauses) {
       body.push({ kind: 'clause', clause: innerClause })
     }
 
-    cursor = paren.close
+    cursor = isMultiLineSubquery ? closeLineStart : paren.close
   })
 
   if (cursor < restContent.length) {

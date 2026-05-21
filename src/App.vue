@@ -108,6 +108,9 @@ const jsonFormatRef = ref()
 // XML 组件引用
 const xmlFormatRef = ref()
 
+// SQL 组件引用
+const sqlFormatRef = ref()
+
 // XML 排序状态
 const xmlSorted = ref(false)
 
@@ -155,6 +158,37 @@ const handleXmlCopy = async () => {
   if (xmlFormatRef.value) {
     await xmlFormatRef.value.copyXml()
     alert('XML 已复制到剪贴板！')
+  }
+}
+
+const handleSqlExpandAll = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.expandAll()
+  }
+}
+
+const handleSqlCollapseAll = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.collapseAll()
+  }
+}
+
+const handleSqlFormat = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.formatSource()
+  }
+}
+
+const handleSqlCompress = () => {
+  if (sqlFormatRef.value) {
+    sqlFormatRef.value.compressSource()
+  }
+}
+
+const handleSqlCopy = async () => {
+  if (sqlFormatRef.value) {
+    await sqlFormatRef.value.copySql()
+    alert('SQL 已复制到剪贴板！')
   }
 }
 </script>
@@ -285,6 +319,23 @@ const handleXmlCopy = async () => {
           <!-- SQL 工具栏 -->
           <div class="toolbar">
             <div class="toolbar-group">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlExpandAll">
+                📂 展开所有
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCollapseAll">
+                📁 折叠所有
+              </button>
+              <button class="toolbar-btn" @click="handleSqlFormat">
+                ✨ 格式化
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCompress">
+                🗜️ 压缩
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCopy">
+                📋 复制 SQL
+              </button>
+            </div>
+            <div class="toolbar-group">
               <label class="theme-label">主题：</label>
               <select v-model="sqlTheme" class="theme-select">
                 <option v-for="option in themeOptions" :key="option.value" :value="option.value">
@@ -294,7 +345,7 @@ const handleXmlCopy = async () => {
             </div>
           </div>
           
-          <SqlFormat v-model="sqlExample" :theme="sqlTheme" dialect="mysql" />
+          <SqlFormat ref="sqlFormatRef" v-model="sqlExample" :theme="sqlTheme" dialect="mysql" />
         </div>
       </div>
     </main>
