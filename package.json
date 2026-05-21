@@ -6,6 +6,10 @@
   "main": "./dist/lone-format.umd.cjs",
   "module": "./dist/lone-format.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "**/*.css",
+    "**/*.vue"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,6 +28,7 @@
       "types": "./dist/components/SqlFormat/index.d.ts",
       "import": "./dist/components/SqlFormat/index.js"
     },
+    "./style.css": "./dist/lone-format.css",
     "./lone-format.css": "./dist/lone-format.css"
   },
   "files": [
@@ -32,8 +37,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "build:lib": "vite build --mode lib",
-    "build:lib:full": "vue-tsc -b && vite build --mode lib",
+    "build:lib": "vite build --mode lib-es && vite build --mode lib-umd",
+    "build:lib:full": "vue-tsc -b && vite build --mode lib-es && vite build --mode lib-umd",
     "preview": "vite preview",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
