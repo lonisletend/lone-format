@@ -543,10 +543,15 @@ const clearSort = () => {
   })
 }
 
+// 获取值字符串（与 copyValue 的加工逻辑保持一致）
+const getValue = (value: any): string => {
+  return typeof value === 'string' ? value : (JSON.stringify(value, null, 2) ?? 'undefined')
+}
+
 // 复制值
 const copyValue = async (value: any) => {
   try {
-    const textToCopy = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+    const textToCopy = getValue(value)
     await navigator.clipboard.writeText(textToCopy)
     emit('copy-success', textToCopy)
   } catch (error) {
@@ -872,7 +877,8 @@ defineExpose({
 
   // 工具方法
   parseXmlString: (xmlString: string) => parseXmlString(xmlString),
-  copyValue: (value: any) => copyValue(value)
+  copyValue: (value: any) => copyValue(value),
+  getValue: (value: any) => getValue(value)
 })
 </script>
 

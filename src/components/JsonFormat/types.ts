@@ -103,6 +103,7 @@ export interface JsonFormatExposed {
   // 工具方法
   parseJson: (jsonString: string) => void
   copyValue: (value: any) => Promise<void>
+  getValue: (value: any) => string
 }
 
 /**

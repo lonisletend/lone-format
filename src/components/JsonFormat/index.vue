@@ -600,27 +600,31 @@ const compressSource = () => {
   }
 }
 
+// 获取值字符串（与 copyValue 的加工逻辑保持一致）
+const getValue = (value: any): string => {
+  // 如果是被保护的数字对象，提取原始数字值
+  if (typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      '__protected_number__' in value &&
+      Object.keys(value).length === 1) {
+    return value.__protected_number__ // 直接使用数字字符串，不加引号
+  }
+
+  if (typeof value === 'string') {
+    // 普通字符串，需要加引号
+    return `"${value}"`
+  }
+
+  // 其他类型，使用 JSON.stringify
+  const stringValue = JSON.stringify(value)
+  return stringValue === undefined ? 'undefined' : stringValue
+}
+
 // 复制值
 const copyValue = async (value: any) => {
   try {
-    let stringValue: string
-
-    // 如果是被保护的数字对象，提取原始数字值
-    if (typeof value === 'object' && 
-        value !== null &&
-        !Array.isArray(value) &&
-        '__protected_number__' in value &&
-        Object.keys(value).length === 1) {
-      stringValue = value.__protected_number__ // 直接使用数字字符串，不加引号
-    } else if (typeof value === 'string') {
-      // 普通字符串，需要加引号
-      stringValue = `"${value}"`
-    } else {
-      // 其他类型，使用 JSON.stringify
-      stringValue = JSON.stringify(value)
-    }
-
-    await navigator.clipboard.writeText(stringValue)
+    await navigator.clipboard.writeText(getValue(value))
   } catch (error) {
     console.error('Failed to copy value:', error)
   }
@@ -818,7 +822,8 @@ defineExpose({
 
   // 工具方法
   parseJson: (jsonString: string) => parseJson(jsonString),
-  copyValue: (value: any) => copyValue(value)
+  copyValue: (value: any) => copyValue(value),
+  getValue: (value: any) => getValue(value)
 })
 </script>
 
