@@ -204,13 +204,18 @@ const collapseAll = () => {
   emit('collapse-all')
 }
 
+// 获取值字符串（与 copySql 的加工逻辑保持一致）
+const getValue = () => {
+  // 优先返回格式化后的 SQL，其次返回原始输入
+  return formattedSql.value || props.modelValue
+}
+
 // 复制 SQL
 const copySql = async () => {
   if (!isValidSql.value) return
 
   try {
-    // 复制格式化后的 SQL，而不是原始输入
-    const sqlToCopy = formattedSql.value || props.modelValue
+    const sqlToCopy = getValue()
     await navigator.clipboard.writeText(sqlToCopy)
     emit('copy-success', sqlToCopy)
   } catch (error) {
@@ -286,6 +291,7 @@ defineExpose({
   isValidSql: () => isValidSql.value,
   getParsedSql,
   getParseError,
+  getValue,
 })
 </script>
 

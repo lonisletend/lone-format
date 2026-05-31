@@ -160,9 +160,12 @@ export interface SqlFormatExposed {
   
   // 获取解析后的 SQL 子句
   getParsedSql: () => SqlClause[] | null
-  
+   
   // 获取解析错误
   getParseError: () => string
+
+  // 获取复制用的 SQL 字符串
+  getValue: () => string
 }
 
 /**

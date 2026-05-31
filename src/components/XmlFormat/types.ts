@@ -164,4 +164,5 @@ export interface XmlFormatExposed {
   // 工具方法
   parseXmlString: (xmlString: string) => void
   copyValue: (value: any) => Promise<void>
+  getValue: (value: any) => string
 }
