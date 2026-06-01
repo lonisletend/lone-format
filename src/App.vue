@@ -166,15 +166,16 @@ const currentInputPlaceholder = computed(() => {
 })
 
 // 主题管理
-const jsonTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
-const xmlTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
-const sqlTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'>('github-light')
+const jsonTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'min-dark' | 'slack-ochin'>('github-light')
+const xmlTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'min-dark' | 'slack-ochin'>('github-light')
+const sqlTheme = ref<'github-light' | 'github-dark' | 'min-light' | 'min-dark' | 'slack-ochin'>('github-light')
 
 // 主题选项
 const themeOptions = [
   { label: 'GitHub Light', value: 'github-light' },
   { label: 'GitHub Dark', value: 'github-dark' },
   { label: 'Min Light', value: 'min-light' },
+  { label: 'Min Dark', value: 'min-dark' },
   { label: 'Slack Ochin', value: 'slack-ochin' }
 ]
 

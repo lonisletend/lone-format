@@ -44,13 +44,13 @@ Each component under `src/components/<Name>/` follows the same pattern:
 
 - **`index.vue`** — The root Vue component. Owns all reactive state, exposes its API via `defineExpose`, emits events, and renders either a node tree or an error message.
 - **`types.ts`** — All TypeScript interfaces for that component: props, emits, exposed methods, and the theme color schema.
-- **`themes.ts`** — Four built-in theme objects (`github-light`, `github-dark`, `min-light`, `slack-ochin`) plus `getTheme()`/`getAvailableThemes()` helpers.
+- **`themes.ts`** — Five built-in theme objects (`github-light`, `github-dark`, `min-light`, `min-dark`, `slack-ochin`) plus `getTheme()`/`getAvailableThemes()` helpers.
 - **`parser.ts`** — Pure functions for parsing, formatting, compressing, and validating the format (no Vue dependency). Used internally by `index.vue`.
 - **`XmlNode.vue` / `JsonNode.vue`** — Recursive rendering components for the tree view (only present in XML and JSON components).
 
 ### Theme system
 
-All three components share the same four `ThemeType` values. Each component has its own `ThemeConfig` interface in its `types.ts` with format-specific syntax highlight color keys (e.g., `syntaxKey` for JSON, `xmlTag`/`xmlAttribute` for XML, `sqlKeyword` for SQL). The theme is passed to child nodes via props and applied inline using `v-bind` in `<style scoped>`.
+All three components share the same five `ThemeType` values. Each component has its own `ThemeConfig` interface in its `types.ts` with format-specific syntax highlight color keys (e.g., `syntaxKey` for JSON, `xmlTag`/`xmlAttribute` for XML, `sqlKeyword` for SQL). The theme is passed to child nodes via props and applied inline using `v-bind` in `<style scoped>`.
 
 ### Big-number precision (JSON)
 

@@ -8,7 +8,7 @@ export type SqlDialect = SqlLanguage
 /**
  * 主题类型枚举（复用现有主题）
  */
-export type ThemeType = 'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'
+export type ThemeType = 'github-light' | 'github-dark' | 'min-light' | 'min-dark' | 'slack-ochin'
 
 /**
  * SQL 子句类型

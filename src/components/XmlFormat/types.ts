@@ -6,7 +6,7 @@ export type XmlNodeType = 'element' | 'text' | 'comment' | 'cdata' | 'declaratio
 /**
  * 主题类型枚举（复用 JSON 的主题）
  */
-export type ThemeType = 'github-light' | 'github-dark' | 'min-light' | 'slack-ochin'
+export type ThemeType = 'github-light' | 'github-dark' | 'min-light' | 'min-dark' | 'slack-ochin'
 
 /**
  * 过滤器类型枚举（仅支持 XPath）
