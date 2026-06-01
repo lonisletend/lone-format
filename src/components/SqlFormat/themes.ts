@@ -159,6 +159,57 @@ const minLight: ThemeConfig = {
 }
 
 /**
+ * Min Dark 主题 - 与 JsonFormat 保持一致
+ */
+const minDark: ThemeConfig = {
+  name: 'min-dark',
+  colors: {
+    // 背景色 - 极简暗色
+    background: '#111111',
+    surfaceBackground: '#1a1a1a',
+    hoverBackground: '#1f1f1f',
+
+    // 边框色 - 柔和深灰
+    border: '#2a2a2a',
+
+    // 文本色 - 柔和浅灰
+    text: '#e5e5e5',
+    textSecondary: '#a3a3a3',
+
+    // 按钮样式 - 简约暗色
+    buttonBackground: '#1f1f1f',
+    buttonBackgroundHover: '#2a2a2a',
+    buttonBorder: '#333333',
+    buttonText: '#e5e5e5',
+    buttonPrimary: '#3b82f6',
+    buttonPrimaryHover: '#2563eb',
+
+    // 状态指示 - 暗色可读性
+    success: '#22c55e',
+    successBackground: '#052e16',
+    error: '#f87171',
+    errorBackground: '#450a0a',
+
+    // SQL 语法高亮 - 极简暗色配色
+    sqlKeyword: '#4ade80',        // 关键字 - 绿色
+    sqlFunction: '#c084fc',       // 函数 - 紫色
+    sqlString: '#f87171',         // 字符串 - 红色
+    sqlNumber: '#60a5fa',         // 数字 - 蓝色
+    sqlComment: '#9ca3af',        // 注释 - 灰色
+    sqlOperator: '#f87171',       // 操作符 - 红色
+    sqlIdentifier: '#f3f4f6',     // 标识符 - 浅灰
+    sqlPunctuation: '#d1d5db',    // 标点 - 浅灰
+
+    // 折叠效果
+    collapsedBackground: '#1e293b', // 折叠信息背景色 - 深蓝灰
+    collapsedText: '#60a5fa',       // 折叠信息文本色 - 蓝色
+
+    // 缩进指示线
+    indentLine: '#374151',          // 对齐线 - 深灰
+  },
+}
+
+/**
  * Slack Ochin 主题
  */
 const slackOchin: ThemeConfig = {
@@ -216,6 +267,7 @@ const themes: Record<ThemeType, ThemeConfig> = {
   'github-light': githubLight,
   'github-dark': githubDark,
   'min-light': minLight,
+  'min-dark': minDark,
   'slack-ochin': slackOchin,
 }
 
@@ -236,4 +288,4 @@ export const getThemeNames = (): ThemeType[] => {
 /**
  * 导出所有主题
  */
-export { githubLight, githubDark, minLight, slackOchin, themes }
+export { githubLight, githubDark, minLight, minDark, slackOchin, themes }

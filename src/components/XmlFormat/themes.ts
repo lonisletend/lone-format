@@ -165,6 +165,59 @@ const minLight: ThemeConfig = {
 }
 
 /**
+ * Minimal Dark 主题
+ */
+const minDark: ThemeConfig = {
+  name: 'min-dark',
+  colors: {
+    // 背景色
+    background: '#111111',
+    surfaceBackground: '#1a1a1a',
+
+    // 边框色
+    border: '#2a2a2a',
+
+    // 文本色
+    text: '#e5e5e5',
+    textSecondary: '#a3a3a3',
+
+    // 按钮样式
+    buttonBackground: '#1f1f1f',
+    buttonBackgroundHover: '#2a2a2a',
+    buttonBorder: '#333333',
+    buttonText: '#e5e5e5',
+    buttonPrimary: '#3b82f6',
+    buttonPrimaryHover: '#2563eb',
+
+    // 状态指示
+    success: '#22c55e',
+    successBackground: '#052e16',
+    error: '#f87171',
+    errorBackground: '#450a0a',
+
+    // XML 语法高亮
+    xmlTag: '#4ade80',          // 标签名 - 绿色
+    xmlAttribute: '#60a5fa',    // 属性名 - 蓝色
+    xmlAttributeValue: '#93c5fd', // 属性值 - 浅蓝色
+    xmlText: '#e5e5e5',         // 文本内容 - 浅灰
+    xmlComment: '#9ca3af',      // 注释 - 灰色
+    xmlCdata: '#c084fc',        // CDATA - 紫色
+    xmlDeclaration: '#f59e0b',  // 声明 - 橙色
+    xmlBracket: '#9ca3af',      // 括号 - 灰色
+    xmlEquals: '#9ca3af',       // 等号 - 灰色
+    xmlQuote: '#60a5fa',        // 引号 - 蓝色
+
+    // 折叠效果
+    collapsedBackground: '#1e293b', // 折叠信息背景色 - 深蓝灰
+    collapsedBackgroundHover: '#334155', // 折叠信息悬停背景色 - 稍浅
+    collapsedText: '#60a5fa',       // 折叠信息文本色 - 蓝色
+
+    // 缩进指示线
+    indentLine: '#374151',          // 对齐线 - 深灰
+  },
+}
+
+/**
  * Slack Ochin 主题
  */
 const slackOchin: ThemeConfig = {
@@ -224,6 +277,7 @@ const themes: Record<ThemeType, ThemeConfig> = {
   'github-light': githubLight,
   'github-dark': githubDark,
   'min-light': minLight,
+  'min-dark': minDark,
   'slack-ochin': slackOchin,
 }
 
@@ -237,4 +291,4 @@ export const getTheme = (themeName: ThemeType): ThemeConfig => {
 /**
  * 导出所有主题
  */
-export { githubLight, githubDark, minLight, slackOchin, themes }
+export { githubLight, githubDark, minLight, minDark, slackOchin, themes }

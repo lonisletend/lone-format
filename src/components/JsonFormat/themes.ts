@@ -166,6 +166,61 @@ export const minLightTheme: ThemeConfig = {
 }
 
 /**
+ * Min Dark 主题配置 - 极简暗色主题
+ */
+export const minDarkTheme: ThemeConfig = {
+  name: 'min-dark',
+  colors: {
+    // 背景色 - 低对比暗色
+    background: '#111111',
+    surfaceBackground: '#1a1a1a',
+
+    // 边框色 - 柔和深灰
+    border: '#2a2a2a',
+
+    // 文本色 - 柔和浅灰
+    text: '#e5e5e5',
+    textSecondary: '#a3a3a3',
+
+    // 按钮样式 - 简约暗色
+    buttonBackground: '#1f1f1f',
+    buttonBackgroundHover: '#2a2a2a',
+    buttonBorder: '#333333',
+    buttonText: '#e5e5e5',
+    buttonPrimary: '#3b82f6',
+    buttonPrimaryHover: '#2563eb',
+
+    // 状态指示 - 暗色可读性
+    success: '#22c55e',
+    successBackground: '#052e16',
+    error: '#f87171',
+    errorBackground: '#450a0a',
+
+    // JSON 语法高亮 - 极简暗色配色
+    syntaxString: '#4ade80',
+    syntaxNumber: '#60a5fa',
+    syntaxBoolean: '#c084fc',
+    syntaxNull: '#9ca3af',
+    syntaxKey: '#f3f4f6',
+    syntaxBracket: '#d1d5db',
+
+    // 悬停效果
+    hoverBackground: '#1f1f1f',
+
+    // 选中背景色
+    selectionBackground: 'rgba(96, 165, 250, 0.25)',
+
+    // 折叠信息样式
+    collapsedBackground: '#1e293b',
+    collapsedBackgroundHover: '#334155',
+    collapsedText: '#60a5fa',
+
+    // 缩进线
+    indentLine: '#374151'
+  }
+}
+
+/**
  * Slack Ochin 主题配置 - 温暖橙色主题
  */
 export const slackOchinTheme: ThemeConfig = {
@@ -227,6 +282,7 @@ export const themes: Record<ThemeType, ThemeConfig> = {
   'github-light': githubLightTheme,
   'github-dark': githubDarkTheme,
   'min-light': minLightTheme,
+  'min-dark': minDarkTheme,
   'slack-ochin': slackOchinTheme
 }
 
