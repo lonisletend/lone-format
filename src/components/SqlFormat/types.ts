@@ -1,7 +1,9 @@
 /**
  * SQL 方言类型枚举
  */
-export type SqlDialect = 'mysql' | 'postgresql' | 'sqlite' | 'sql' | 'plsql' | 'tsql'
+import type { SqlLanguage } from 'sql-formatter'
+
+export type SqlDialect = SqlLanguage
 
 /**
  * 主题类型枚举（复用现有主题）

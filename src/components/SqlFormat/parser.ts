@@ -3,8 +3,8 @@
  * 基于 sql-formatter 的稳定实现
  */
 
-import { format } from 'sql-formatter'
-import type { SqlClause, SqlBodySegment, ParsedSql, SqlFormatOptions } from './types'
+import { format, supportedDialects } from 'sql-formatter'
+import type { SqlClause, SqlBodySegment, ParsedSql, SqlFormatOptions, SqlDialect } from './types'
 
 /**
  * SQL 关键字列表（用于基础验证）
@@ -28,11 +28,25 @@ const MAJOR_CLAUSES = [
   'UNION ALL', 'UNION', 'INTERSECT', 'EXCEPT'
 ]
 
+const DEFAULT_SQL_DIALECT: SqlDialect = 'sql'
+const SUPPORTED_SQL_DIALECTS = new Set<SqlDialect>(supportedDialects as SqlDialect[])
+
+const normalizeDialect = (dialect: SqlDialect = DEFAULT_SQL_DIALECT): SqlDialect => {
+  const normalized = String(dialect).trim().toLowerCase() as SqlDialect
+  if (!SUPPORTED_SQL_DIALECTS.has(normalized)) {
+    throw new Error(`Unsupported SQL dialect: ${dialect}`)
+  }
+  return normalized
+}
+
 /**
  * 验证 SQL 字符串
  * 使用 sql-formatter 进行验证，同时保留基础检查
  */
-export const validateSql = (sqlString: string): { valid: boolean; error?: string } => {
+export const validateSql = (
+  sqlString: string,
+  dialect: SqlDialect = DEFAULT_SQL_DIALECT
+): { valid: boolean; error?: string } => {
   try {
     if (!sqlString || !sqlString.trim()) {
       return { valid: false, error: 'SQL string is empty' }
@@ -84,18 +98,9 @@ export const validateSql = (sqlString: string): { valid: boolean; error?: string
       return { valid: false, error: `Mismatched parentheses: ${parenCount} unclosed opening parenthesis` }
     }
 
-    // 3. 使用 sql-formatter 进行验证
-    try {
-      // 尝试格式化 SQL，如果失败则说明语法有问题
-      format(sqlString, { language: 'sql' })
-      return { valid: true }
-    } catch (formatError) {
-      // sql-formatter 解析失败，返回错误信息
-      return {
-        valid: false,
-        error: formatError instanceof Error ? formatError.message : 'SQL syntax error',
-      }
-    }
+    const language = normalizeDialect(dialect)
+    format(sqlString, { language })
+    return { valid: true }
   } catch (error) {
     return {
       valid: false,
@@ -250,27 +255,15 @@ export const formatSql = (
   options?: SqlFormatOptions
 ): string => {
   try {
-    const dialect = options?.dialect || 'sql'
+    const dialect = normalizeDialect(options?.dialect ?? DEFAULT_SQL_DIALECT)
     const tabWidth = options?.tabWidth || 2
     const keywordCase = options?.keywordCase || 'upper'
     const useTabs = options?.useTabs || false
     const linesBetweenQueries = options?.linesBetweenQueries || 1
 
-    // 将我们的方言映射到 sql-formatter 支持的语言
-    const languageMap: Record<string, string> = {
-      'sql': 'sql',
-      'mysql': 'mysql',
-      'postgresql': 'postgresql',
-      'sqlite': 'sqlite',
-      'plsql': 'plsql',
-      'tsql': 'tsql'
-    }
-
-    const language = languageMap[dialect] || 'sql'
-
     // 使用 sql-formatter 进行格式化
     let formatted = format(sqlString, {
-      language: language as any,
+      language: dialect,
       tabWidth,
       keywordCase,
       useTabs,
@@ -286,9 +279,8 @@ export const formatSql = (
 
     return formatted
   } catch (error) {
-    // 如果格式化失败，返回原始字符串
-    console.error('SQL formatting error:', error)
-    return sqlString
+    const message = error instanceof Error ? error.message : 'Unknown formatting error'
+    throw new Error(`SQL formatting error: ${message}`)
   }
 }
 
@@ -730,25 +722,13 @@ const splitIntoClauses = (formattedSql: string, pathPrefix: string): SqlClause[]
  * 解析 SQL 为子句结构
  * 使用 sql-formatter 格式化后进行解析；子查询内部递归拆分为嵌套子句。
  */
-export const parseSqlClauses = (sqlString: string): ParsedSql => {
-  try {
-    const formatted = formatSql(sqlString, { keywordCase: 'upper' })
-    const clauses = splitIntoClauses(formatted, '')
-    return { clauses, raw: sqlString }
-  } catch (error) {
-    return {
-      clauses: [
-        {
-          type: 'UNKNOWN',
-          content: sqlString,
-          raw: sqlString,
-          collapsible: false,
-          path: 'clause-0',
-        },
-      ],
-      raw: sqlString,
-    }
-  }
+export const parseSqlClauses = (
+  sqlString: string,
+  dialect: SqlDialect = DEFAULT_SQL_DIALECT
+): ParsedSql => {
+  const formatted = formatSql(sqlString, { dialect, keywordCase: 'upper' })
+  const clauses = splitIntoClauses(formatted, '')
+  return { clauses, raw: sqlString }
 }
 
 /**

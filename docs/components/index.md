@@ -3,6 +3,22 @@
 ## Component List
 
 - [JSON Format](/components/json-format) - Advanced JSON viewer and editor with syntax highlighting
+- `SqlFormat` - SQL formatter and clause viewer with external `dialect` prop support (dialects follow `sql-formatter`'s `supportedDialects`, e.g. `sql`, `mysql`, `postgresql`, `sqlite`, `plsql`, `tsql`, `snowflake`, `trino`)
+
+## SQL Dialect Usage
+
+```vue
+<template>
+  <SqlFormat v-model="sql" dialect="snowflake" />
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { SqlFormat } from 'lone-format'
+
+const sql = ref('select * from users')
+</script>
+```
 
 ## Design Principles
 
