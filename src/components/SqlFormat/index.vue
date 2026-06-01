@@ -100,7 +100,7 @@ const parseSqlString = (sqlString: string) => {
 
   try {
     // 验证
-    const validation = validateSql(sqlString)
+    const validation = validateSql(sqlString, currentDialect.value)
     if (!validation.valid) {
       parseError.value = validation.error || 'Invalid SQL'
       parsedClauses.value = []
@@ -109,7 +109,7 @@ const parseSqlString = (sqlString: string) => {
     }
 
     // 解析子句
-    const parsed = parseSqlClauses(sqlString)
+    const parsed = parseSqlClauses(sqlString, currentDialect.value)
     parsedClauses.value = parsed.clauses
     
     // 保存格式化后的 SQL（用于复制功能）
@@ -277,6 +277,7 @@ watch(
   () => props.dialect,
   (newValue) => {
     currentDialect.value = newValue
+    parseSqlString(props.modelValue)
   }
 )
 

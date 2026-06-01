@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import JsonFormat from './components/JsonFormat/index.vue'
 import XmlFormat from './components/XmlFormat/index.vue'
 import SqlFormat from './components/SqlFormat/index.vue'
+import type { SqlDialect, SqlFormatExposed } from './components/SqlFormat/types'
 
 // JSON 示例数据
 const jsonExample = ref(`{
@@ -45,22 +46,97 @@ const xmlExample = ref(`<?xml version="1.0" encoding="UTF-8"?>
   </book>
 </library>`)
 
-// SQL 示例数据
-const sqlExample = ref(`SELECT 
+const sqlDialectOptions: Array<{ label: string; value: SqlDialect }> = [
+  { label: 'SQL (generic)', value: 'sql' },
+  { label: 'MySQL', value: 'mysql' },
+  { label: 'PostgreSQL', value: 'postgresql' },
+  { label: 'SQLite', value: 'sqlite' },
+  { label: 'T-SQL', value: 'tsql' },
+  { label: 'PL/SQL', value: 'plsql' },
+  { label: 'Snowflake', value: 'snowflake' },
+  { label: 'Trino', value: 'trino' },
+]
+
+type SqlTestcase = {
+  id: string
+  label: string
+  dialect: SqlDialect
+  sql: string
+}
+
+const sqlTestcases: SqlTestcase[] = [
+  {
+    id: 'mysql-join',
+    label: 'MySQL - join + group + limit',
+    dialect: 'mysql',
+    sql: `SELECT 
   u.id,
   u.username,
   u.email,
-  COUNT(o.id) as order_count
+  COUNT(o.id) AS order_count
 FROM users u
 LEFT JOIN orders o ON u.id = o.user_id
 WHERE u.status = 'active'
 GROUP BY u.id, u.username, u.email
 ORDER BY order_count DESC
-LIMIT 10;`)
+LIMIT 10;`,
+  },
+  {
+    id: 'postgres-distinct-on',
+    label: 'PostgreSQL - DISTINCT ON',
+    dialect: 'postgresql',
+    sql: `SELECT DISTINCT ON (u.id)
+  u.id,
+  u.username,
+  l.logged_at
+FROM users u
+JOIN login_logs l ON l.user_id = u.id
+ORDER BY u.id, l.logged_at DESC;`,
+  },
+  {
+    id: 'tsql-top',
+    label: 'T-SQL - TOP WITH TIES',
+    dialect: 'tsql',
+    sql: `SELECT TOP (5) WITH TIES
+  [u].[id],
+  [u].[username]
+FROM [dbo].[users] AS [u]
+ORDER BY [u].[created_at] DESC;`,
+  },
+  {
+    id: 'snowflake-variant',
+    label: 'Snowflake - VARIANT access',
+    dialect: 'snowflake',
+    sql: `SELECT
+  payload:customer.name::STRING AS customer_name,
+  payload:order.total::NUMBER(10,2) AS order_total
+FROM raw_events
+WHERE payload:order.status::STRING = 'paid';`,
+  },
+]
+
+// SQL 示例数据
+const sqlExample = ref(sqlTestcases[0].sql)
 
 // Tab 管理
 const activeTab = ref('json')
 const showTestcaseInput = ref(false)
+const selectedSqlTestcaseId = ref(sqlTestcases[0].id)
+const sqlDialect = ref<SqlDialect>(sqlTestcases[0].dialect)
+const sqlUseInvalidDialect = ref(false)
+const sqlInvalidDialectInput = ref('not-a-real-dialect')
+const sqlValidationStatus = ref<'idle' | 'valid' | 'invalid'>('idle')
+const sqlValidationMessage = ref('等待 SQL 组件挂载...')
+
+const effectiveSqlDialect = computed<SqlDialect>(() => {
+  return sqlUseInvalidDialect.value
+    ? (sqlInvalidDialectInput.value as SqlDialect)
+    : sqlDialect.value
+})
+
+const currentSqlTestcase = computed<SqlTestcase>(() => {
+  return sqlTestcases.find(testcase => testcase.id === selectedSqlTestcaseId.value) || sqlTestcases[0]
+})
 
 const currentTestcase = computed({
   get: () => {
@@ -109,7 +185,7 @@ const jsonFormatRef = ref()
 const xmlFormatRef = ref()
 
 // SQL 组件引用
-const sqlFormatRef = ref()
+const sqlFormatRef = ref<SqlFormatExposed | null>(null)
 
 // XML 排序状态
 const xmlSorted = ref(false)
@@ -191,6 +267,56 @@ const handleSqlCopy = async () => {
     alert('SQL 已复制到剪贴板！')
   }
 }
+
+const applySelectedSqlTestcase = () => {
+  const testcase = currentSqlTestcase.value
+  sqlDialect.value = testcase.dialect
+  sqlExample.value = testcase.sql
+  sqlUseInvalidDialect.value = false
+}
+
+const toggleInvalidSqlDialect = () => {
+  sqlUseInvalidDialect.value = !sqlUseInvalidDialect.value
+}
+
+const updateSqlValidationStatus = async () => {
+  await nextTick()
+
+  if (!sqlFormatRef.value) {
+    sqlValidationStatus.value = 'idle'
+    sqlValidationMessage.value = '等待 SQL 组件挂载...'
+    return
+  }
+
+  const valid = sqlFormatRef.value.isValidSql()
+  if (valid) {
+    sqlValidationStatus.value = 'valid'
+    sqlValidationMessage.value = '当前 SQL 在所选方言下解析通过。'
+    return
+  }
+
+  sqlValidationStatus.value = 'invalid'
+  sqlValidationMessage.value = sqlFormatRef.value.getParseError() || 'SQL 解析失败'
+}
+
+watch(
+  [sqlExample, effectiveSqlDialect],
+  () => {
+    if (activeTab.value === 'sql') {
+      void updateSqlValidationStatus()
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => activeTab.value,
+  (tab) => {
+    if (tab === 'sql') {
+      void updateSqlValidationStatus()
+    }
+  }
+)
 </script>
 
 <template>
@@ -319,33 +445,90 @@ const handleSqlCopy = async () => {
           <!-- SQL 工具栏 -->
           <div class="toolbar">
             <div class="toolbar-group">
-              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlExpandAll">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlExpandAll" data-testid="sql-expand-btn">
                 📂 展开所有
               </button>
-              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCollapseAll">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCollapseAll" data-testid="sql-collapse-btn">
                 📁 折叠所有
               </button>
-              <button class="toolbar-btn" @click="handleSqlFormat">
+              <button class="toolbar-btn" @click="handleSqlFormat" data-testid="sql-format-btn">
                 ✨ 格式化
               </button>
-              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCompress">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCompress" data-testid="sql-compress-btn">
                 🗜️ 压缩
               </button>
-              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCopy">
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleSqlCopy" data-testid="sql-copy-btn">
                 📋 复制 SQL
               </button>
             </div>
             <div class="toolbar-group">
               <label class="theme-label">主题：</label>
-              <select v-model="sqlTheme" class="theme-select">
+              <select v-model="sqlTheme" class="theme-select" data-testid="sql-theme-select">
                 <option v-for="option in themeOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
                 </option>
               </select>
             </div>
+            <div class="toolbar-group">
+              <label class="theme-label">方言：</label>
+              <select
+                v-model="sqlDialect"
+                class="theme-select"
+                :disabled="sqlUseInvalidDialect"
+                data-testid="sql-dialect-select"
+              >
+                <option v-for="option in sqlDialectOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+              <button
+                class="toolbar-btn toolbar-btn--secondary"
+                @click="toggleInvalidSqlDialect"
+                data-testid="sql-invalid-dialect-toggle-btn"
+              >
+                {{ sqlUseInvalidDialect ? '✅ 切回合法方言' : '⚠️ 注入非法方言' }}
+              </button>
+              <input
+                v-if="sqlUseInvalidDialect"
+                v-model="sqlInvalidDialectInput"
+                class="toolbar-input"
+                placeholder="输入非法 dialect 值"
+                data-testid="sql-invalid-dialect-input"
+              />
+            </div>
+            <div class="toolbar-group">
+              <label class="theme-label">测试用例：</label>
+              <select v-model="selectedSqlTestcaseId" class="theme-select" data-testid="sql-testcase-select">
+                <option v-for="testcase in sqlTestcases" :key="testcase.id" :value="testcase.id">
+                  {{ testcase.label }}
+                </option>
+              </select>
+              <button
+                class="toolbar-btn toolbar-btn--secondary"
+                @click="applySelectedSqlTestcase"
+                data-testid="sql-apply-testcase-btn"
+              >
+                🧪 应用用例
+              </button>
+            </div>
+            <div class="toolbar-group toolbar-group--stacked" data-testid="sql-test-context">
+              <div class="toolbar-context">
+                当前方言：<code>{{ effectiveSqlDialect }}</code>
+              </div>
+              <div class="toolbar-context">
+                当前用例：{{ currentSqlTestcase.label }}
+              </div>
+            </div>
+            <div
+              class="toolbar-status"
+              :class="{ 'toolbar-status--error': sqlValidationStatus === 'invalid' }"
+              data-testid="sql-validation-status"
+            >
+              {{ sqlValidationStatus === 'valid' ? '✅ 解析通过' : sqlValidationStatus === 'invalid' ? `❌ ${sqlValidationMessage}` : '⏳ 等待验证' }}
+            </div>
           </div>
           
-          <SqlFormat ref="sqlFormatRef" v-model="sqlExample" :theme="sqlTheme" dialect="mysql" />
+          <SqlFormat ref="sqlFormatRef" v-model="sqlExample" :theme="sqlTheme" :dialect="effectiveSqlDialect" />
         </div>
       </div>
     </main>
@@ -520,6 +703,15 @@ const handleSqlCopy = async () => {
   font-size: 14px;
   font-weight: 500;
   border: 1px solid #c3e6cb;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.toolbar-status--error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
 .testcase-input-toggle {
@@ -588,6 +780,40 @@ const handleSqlCopy = async () => {
 .theme-select:focus {
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.toolbar-input {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: white;
+  color: #24292f;
+  font-size: 14px;
+  min-width: 200px;
+  outline: none;
+}
+
+.toolbar-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.toolbar-group--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.toolbar-context {
+  font-size: 13px;
+  color: #495057;
+}
+
+.toolbar-context code {
+  background: #e9ecef;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
 }
 
 .app-footer {
