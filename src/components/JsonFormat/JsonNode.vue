@@ -11,7 +11,7 @@
           @blur="saveKeyEdit"
           ref="keyRef"
           :title="'Double-click to edit key'">
-          {{ isEditingKey ? editingKeyValue : `"${displayKey}"` }}
+          {{ isEditingKey ? editingKeyValue : formattedKey }}
         </span>
         <span v-if="keyName" class="json-node__colon">: </span>
 
@@ -61,7 +61,7 @@
         @blur="saveKeyEdit"
         ref="keyRef"
         :title="'Double-click to edit key'">
-        {{ isEditingKey ? editingKeyValue : `"${displayKey}"` }}
+        {{ isEditingKey ? editingKeyValue : formattedKey }}
       </span>
       <span v-if="keyName" class="json-node__colon">: </span>
 
@@ -146,6 +146,22 @@ const displayKey = computed(() => {
   return props.keyName
 })
 
+const formatJsonString = (value: string) => {
+  return JSON.stringify(value)
+}
+
+const formatJsonStringContent = (value: string) => {
+  return formatJsonString(value).slice(1, -1)
+}
+
+const parseJsonStringContent = (value: string) => {
+  return JSON.parse(`"${value}"`)
+}
+
+const formattedKey = computed(() => {
+  return formatJsonString(displayKey.value)
+})
+
 const openBracket = computed(() => isArray.value ? '[' : '{')
 const closeBracket = computed(() => isArray.value ? ']' : '}')
 
@@ -192,7 +208,7 @@ const formattedValue = computed(() => {
   
   if (typeof props.value === 'string') {
     // 对于普通字符串，始终加引号显示
-    return `"${props.value}"`
+    return formatJsonString(props.value)
   }
   return String(props.value)
 })
@@ -223,11 +239,12 @@ const editKey = () => {
   if (props.level === 0) return // 根节点不允许编辑 key
 
   isEditingKey.value = true
-  editingKeyValue.value = props.keyName
+  editingKeyValue.value = formatJsonStringContent(props.keyName)
 
   // 使用 nextTick 确保 DOM 更新后再聚焦
   nextTick(() => {
     if (keyRef.value) {
+      keyRef.value.textContent = editingKeyValue.value
       keyRef.value.focus()
       // 选中所有文本
       const range = document.createRange()
@@ -262,8 +279,8 @@ const editValue = () => {
     // 被保护的数字对象，使用其数字值
     editingValueValue.value = getProtectedNumberValue(props.value)
   } else if (typeof props.value === 'string') {
-    // 普通字符串不包含引号
-    editingValueValue.value = props.value
+    // 普通字符串使用 JSON 字符串内部文本，避免换行等转义被渲染成真实字符
+    editingValueValue.value = formatJsonStringContent(props.value)
   } else {
     // 其他类型转换为字符串
     editingValueValue.value = String(props.value)
@@ -271,6 +288,7 @@ const editValue = () => {
 
   nextTick(() => {
     if (valueRef.value) {
+      valueRef.value.textContent = editingValueValue.value
       valueRef.value.focus()
       // 选中所有文本
       const range = document.createRange()
@@ -286,10 +304,18 @@ const saveKeyEdit = () => {
   if (props.level === 0) return // 根节点不允许编辑 key
   if (!isEditingKey.value) return // 如果不在编辑状态，直接返回
 
-  const newKey = keyRef.value?.innerText.trim() || ''
+  const editedKey = keyRef.value?.textContent ?? ''
+  let newKey = ''
+
+  try {
+    newKey = parseJsonStringContent(editedKey)
+  } catch (error) {
+    console.error('Failed to parse key:', error)
+    return
+  }
 
   // 检查新 key 是否有效
-  if (!newKey) {
+  if (newKey.length === 0) {
     // 如果新 key 为空，取消编辑
     cancelKeyEdit()
     return
@@ -314,7 +340,8 @@ const saveValueEdit = () => {
 
   try {
     let newValue: any
-    const trimmed = valueRef.value?.innerText.trim() || ''
+    const editedValue = valueRef.value?.textContent ?? ''
+    const trimmed = editedValue.trim()
 
     // 如果原始值是字符串类型，保持为字符串（除非用户明确修改）
     if (originalValueType.value === 'string') {
@@ -324,8 +351,8 @@ const saveValueEdit = () => {
       } else if (trimmed === 'true' || trimmed === 'false') {
         newValue = trimmed === 'true'
       } else {
-        // 保持为字符串，即使内容看起来像数字
-        newValue = trimmed
+        // 保持为字符串，并按 JSON 字符串内部文本解析转义字符
+        newValue = parseJsonStringContent(editedValue)
       }
     } else if (originalValueType.value === 'protected-number') {
       // 原本是受保护的大数字，继续保持这个格式
@@ -362,7 +389,7 @@ const saveValueEdit = () => {
 
 const cancelKeyEdit = () => {
   isEditingKey.value = false
-  editingKeyValue.value = props.keyName
+  editingKeyValue.value = formatJsonStringContent(props.keyName)
 }
 
 const cancelValueEdit = () => {
@@ -371,7 +398,7 @@ const cancelValueEdit = () => {
   if (isProtectedNumberObject(props.value)) {
     editingValueValue.value = getProtectedNumberValue(props.value)
   } else if (typeof props.value === 'string') {
-    editingValueValue.value = props.value
+    editingValueValue.value = formatJsonStringContent(props.value)
   } else {
     editingValueValue.value = String(props.value)
   }
