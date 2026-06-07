@@ -84,6 +84,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue'
 import type { ThemeConfig } from './types'
+import { createProtectedNumber, getProtectedNumberValue, isProtectedNumberObject } from './protectedNumber'
 
 interface Props {
   value: any
@@ -115,23 +116,6 @@ const editingValueValue = ref('')
 const originalValueType = ref<'string' | 'number' | 'boolean' | 'null' | 'protected-number'>('string') // 记录原始值类型
 const keyRef = ref<HTMLElement | null>(null)
 const valueRef = ref<HTMLElement | null>(null)
-
-// 辅助函数：检查是否为被保护的数字对象
-const isProtectedNumberObject = (value: any): boolean => {
-  return value !== null && 
-         typeof value === 'object' && 
-         !Array.isArray(value) &&
-         '__protected_number__' in value &&
-         Object.keys(value).length === 1
-}
-
-// 辅助函数：获取被保护数字的值
-const getProtectedNumberValue = (value: any): string => {
-  if (isProtectedNumberObject(value)) {
-    return value.__protected_number__
-  }
-  return ''
-}
 
 // 计算属性
 const isObjectOrArray = computed(() => {
@@ -345,7 +329,7 @@ const saveValueEdit = () => {
       }
     } else if (originalValueType.value === 'protected-number') {
       // 原本是受保护的大数字，继续保持这个格式
-      newValue = { __protected_number__: trimmed }
+      newValue = createProtectedNumber(trimmed)
     } else {
       // 原本是其他类型（number, boolean, null），按照常规逻辑解析
       if (trimmed === 'null') {
@@ -357,7 +341,7 @@ const saveValueEdit = () => {
         const num = Number(trimmed)
         if (!Number.isSafeInteger(num) || trimmed.length > 15) {
           // 大数字使用保护对象格式，保持数字类型
-          newValue = { __protected_number__: trimmed }
+          newValue = createProtectedNumber(trimmed)
         } else {
           // 普通数字
           newValue = num

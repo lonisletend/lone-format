@@ -26,6 +26,7 @@ import { JSONPath } from 'jsonpath-plus'
 import JsonNode from './JsonNode.vue'
 import type { FilterConfig, ThemeType } from './types'
 import { getTheme } from './themes'
+import { createProtectedNumber, getProtectedNumberValue, isProtectedNumberObject } from './protectedNumber'
 
 interface Props {
   modelValue: string
@@ -57,6 +58,28 @@ const expandedNodes = ref<Set<string>>(new Set())
 const filteredJson = ref<any>(null)
 const filterError = ref<string>('')
 const isSorted = ref<boolean>(false) // key 排序状态
+
+const reviveProtectedNumbers = (value: any, placeholderKey: string): any => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => reviveProtectedNumbers(item, placeholderKey))
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, placeholderKey) &&
+      Object.keys(value).length === 1 &&
+      typeof value[placeholderKey] === 'string') {
+    return createProtectedNumber(value[placeholderKey])
+  }
+
+  for (const key of Object.keys(value)) {
+    value[key] = reviveProtectedNumbers(value[key], placeholderKey)
+  }
+
+  return value
+}
 
 // 计算属性
 const isValidJson = computed(() => parseError.value === '')
@@ -120,6 +143,7 @@ const parseJson = (jsonString: string) => {
 
   try {
     let processedString = jsonString
+    const protectedNumberPlaceholderKey = `__json_format_protected_number_${Date.now()}_${Math.random().toString(36).slice(2)}__`
 
     // 检查是否包含可能丢失精度的大数字或小数（包括负数）
     // 检查对象属性值和数组元素值
@@ -181,7 +205,7 @@ const parseJson = (jsonString: string) => {
             let match = remaining.match(/^([:,\[\s]*)(-?\d{16,})(\s*[,\}\]\s]|$)/)
             if (match) {
               // 使用特殊的对象格式来标记这是被保护的数字
-              result += match[1] + '{"__protected_number__":"' + match[2] + '"}' + match[3]
+              result += match[1] + '{"' + protectedNumberPlaceholderKey + '":"' + match[2] + '"}' + match[3]
               i += match[0].length
               continue
             }
@@ -190,7 +214,7 @@ const parseJson = (jsonString: string) => {
             match = remaining.match(/^([:,\[\s]*)(-?\d+\.\d*0+)(\s*[,\}\]\s]|$)/)
             if (match) {
               // 使用特殊的对象格式来标记这是被保护的数字
-              result += match[1] + '{"__protected_number__":"' + match[2] + '"}' + match[3]
+              result += match[1] + '{"' + protectedNumberPlaceholderKey + '":"' + match[2] + '"}' + match[3]
               i += match[0].length
               continue
             }
@@ -207,7 +231,7 @@ const parseJson = (jsonString: string) => {
     // 处理大数字和小数精度：使用新的保护函数
     processedString = protectNumbers(processedString)
 
-    parsedJson.value = JSON.parse(processedString)
+    parsedJson.value = reviveProtectedNumbers(JSON.parse(processedString), protectedNumberPlaceholderKey)
     parseError.value = ''
 
     // 清除之前的过滤结果和错误
@@ -301,8 +325,8 @@ const createProxyWithIndexMap = (data: any, path: string = 'root'): { proxyData:
     }
 
     // 检查是否是被保护的数字对象
-    if (typeof value === 'object' && value.__protected_number__ !== undefined) {
-      const numValue = parseFloat(value.__protected_number__)
+    if (isProtectedNumberObject(value)) {
+      const numValue = parseFloat(getProtectedNumberValue(value))
       indexMap.set(numValue, currentPath)
       return numValue
     }
@@ -445,11 +469,9 @@ const stringifyPreservingNumbers = (obj: any, replacer?: any, space?: number): s
     }
 
     // 检查是否为被保护的数字对象
-    if (!Array.isArray(data) &&
-        '__protected_number__' in data &&
-        Object.keys(data).length === 1) {
+    if (isProtectedNumberObject(data)) {
       // 返回特殊标记，后续会被替换为原始数字
-      return `__PROTECTED_NUMBER_${data.__protected_number__}_PROTECTED_NUMBER__`
+      return `__PROTECTED_NUMBER_${getProtectedNumberValue(data)}_PROTECTED_NUMBER__`
     }
 
     // 递归处理数组
@@ -603,12 +625,8 @@ const compressSource = () => {
 // 获取值字符串（与 copyValue 的加工逻辑保持一致）
 const getValue = (value: any): string => {
   // 如果是被保护的数字对象，提取原始数字值
-  if (typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      '__protected_number__' in value &&
-      Object.keys(value).length === 1) {
-    return value.__protected_number__ // 直接使用数字字符串，不加引号
+  if (isProtectedNumberObject(value)) {
+    return getProtectedNumberValue(value) // 直接使用数字字符串，不加引号
   }
 
   if (typeof value === 'string') {
