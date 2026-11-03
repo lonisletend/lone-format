@@ -188,6 +188,9 @@ const xmlFormatRef = ref()
 // SQL 组件引用
 const sqlFormatRef = ref<SqlFormatExposed | null>(null)
 
+// JSON 排序状态
+const jsonSorted = ref(false)
+
 // XML 排序状态
 const xmlSorted = ref(false)
 
@@ -202,6 +205,20 @@ const handleJsonExpandAll = () => {
 const handleJsonCollapseAll = () => {
   if (jsonFormatRef.value) {
     jsonFormatRef.value.collapseAll()
+  }
+}
+
+const handleJsonSort = () => {
+  if (jsonFormatRef.value) {
+    jsonFormatRef.value.sortKeys()
+    jsonSorted.value = true
+  }
+}
+
+const handleJsonClearSort = () => {
+  if (jsonFormatRef.value) {
+    jsonFormatRef.value.clearSortKeys()
+    jsonSorted.value = false
   }
 }
 
@@ -370,6 +387,14 @@ watch(
           <!-- JSON 工具栏 -->
           <div class="toolbar">
             <div class="toolbar-group">
+              <button class="toolbar-btn" @click="handleJsonSort" :disabled="jsonSorted" data-testid="json-sort-btn">
+                📊 排序 (Key)
+              </button>
+              <button class="toolbar-btn toolbar-btn--secondary" @click="handleJsonClearSort" :disabled="!jsonSorted" data-testid="json-clear-sort-btn">
+                🔄 取消排序
+              </button>
+            </div>
+            <div class="toolbar-group">
               <button class="toolbar-btn toolbar-btn--secondary" @click="handleJsonExpandAll">
                 📂 展开所有
               </button>
@@ -384,6 +409,9 @@ watch(
                   {{ option.label }}
                 </option>
               </select>
+            </div>
+            <div class="toolbar-status" v-if="jsonSorted" data-testid="json-sort-status">
+              ✅ 已排序
             </div>
           </div>
           
