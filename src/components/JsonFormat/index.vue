@@ -93,6 +93,11 @@ const sortObjectKeys = (obj: any): any => {
     return obj
   }
 
+  // 被保护的数字对象直接返回，重建会丢失不可枚举的标记，导致被当作普通对象渲染
+  if (isProtectedNumberObject(obj)) {
+    return obj
+  }
+
   // 如果是数组，递归处理每个元素
   if (Array.isArray(obj)) {
     return obj.map(item => sortObjectKeys(item))
@@ -142,41 +147,16 @@ const parseJson = (jsonString: string) => {
   }
 
   try {
-    let processedString = jsonString
     const protectedNumberPlaceholderKey = `__json_format_protected_number_${Date.now()}_${Math.random().toString(36).slice(2)}__`
 
-    // 检查是否包含可能丢失精度的大数字或小数（包括负数）
-    // 检查对象属性值和数组元素值
-    const hasLargeNumbers = /(:\s*|,\s*|\[\s*)-?\d{16,}/.test(processedString)
-    const hasTrailingZeroDecimals = /(:\s*|,\s*|\[\s*)-?\d+\.\d*0+\s*[,}\]\s]*/.test(processedString)
-
-    // 如果没有精度问题，尝试直接解析
-    if (!hasLargeNumbers && !hasTrailingZeroDecimals) {
-      try {
-        parsedJson.value = JSON.parse(processedString)
-        parseError.value = ''
-
-        // 清除之前的过滤结果和错误
-        filteredJson.value = null
-        filterError.value = ''
-
-        // 自动展开所有层级
-        nextTick(() => {
-          if (displayJson.value !== null) {
-            expandAll()
-          }
-        })
-        return
-      } catch (directParseError) {
-        // 如果直接解析失败，继续使用特殊处理
-      }
-    }
-
-    // 专门处理数组和对象中的数值，使用特殊标记来区分原始字符串和被保护的数字
+    // 扫描非字符串区域的完整数字 token，将无法被 JS Number 精确还原的数字
+    // （大整数、带尾随零的小数、超出双精度的小数等）替换为保护对象
     const protectNumbers = (text: string): string => {
+      const numberRe = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y
       let result = ''
       let inString = false
       let escaped = false
+      let last = 0
       let i = 0
 
       while (i < text.length) {
@@ -190,46 +170,34 @@ const parseJson = (jsonString: string) => {
           } else if (char === '"') {
             inString = false
           }
-          result += char
           i++
-        } else {
-          if (char === '"') {
-            inString = true
-            result += char
+        } else if (char === '"') {
+          inString = true
+          i++
+        } else if (char === '-' || (char >= '0' && char <= '9')) {
+          numberRe.lastIndex = i
+          const match = numberRe.exec(text)
+          if (!match) {
             i++
-          } else {
-            // 在非字符串区域寻找数值
-            const remaining = text.slice(i)
-
-            // 匹配大数字（16位以上，包括负数）
-            let match = remaining.match(/^([:,\[\s]*)(-?\d{16,})(\s*[,\}\]\s]|$)/)
-            if (match) {
-              // 使用特殊的对象格式来标记这是被保护的数字
-              result += match[1] + '{"' + protectedNumberPlaceholderKey + '":"' + match[2] + '"}' + match[3]
-              i += match[0].length
-              continue
-            }
-
-            // 匹配有尾随零的小数（包括负数）
-            match = remaining.match(/^([:,\[\s]*)(-?\d+\.\d*0+)(\s*[,\}\]\s]|$)/)
-            if (match) {
-              // 使用特殊的对象格式来标记这是被保护的数字
-              result += match[1] + '{"' + protectedNumberPlaceholderKey + '":"' + match[2] + '"}' + match[3]
-              i += match[0].length
-              continue
-            }
-
-            result += char
-            i++
+            continue
           }
+          const numStr = match[0]
+          // 数字转换后无法还原为原始文本，说明存在精度或格式丢失，需要保护
+          if (String(Number(numStr)) !== numStr) {
+            result += text.slice(last, i) + '{"' + protectedNumberPlaceholderKey + '":"' + numStr + '"}'
+            last = i + numStr.length
+          }
+          i += numStr.length
+        } else {
+          i++
         }
       }
 
-      return result
+      return last === 0 ? text : result + text.slice(last)
     }
 
-    // 处理大数字和小数精度：使用新的保护函数
-    processedString = protectNumbers(processedString)
+    // 处理大数字和小数精度
+    const processedString = protectNumbers(jsonString)
 
     parsedJson.value = reviveProtectedNumbers(JSON.parse(processedString), protectedNumberPlaceholderKey)
     parseError.value = ''
