@@ -22,7 +22,7 @@ npm run version:minor    # Bump minor version (no git tag)
 npm run publish:dry      # Dry run npm publish to verify output
 ```
 
-There are no test commands — the project has no test suite. Manual verification is done via the demo app (`npm run dev`) or the HTML test files in the root (`test-xml-sort.html`, `index.html`).
+There are no test commands — the project has no test suite. Manual verification is done via the demo playground (`npm run dev`).
 
 ## Architecture
 
@@ -64,10 +64,16 @@ All three components track expand/collapse state via a `Set<string>` of dot-sepa
 
 `SqlFormat` uses `sql-formatter` to normalise SQL, then splits the output on major clause keywords (`SELECT`, `FROM`, `JOIN`, etc.) to produce a flat `SqlClause[]` array. `INSERT INTO ... VALUES` is special-cased: each value tuple becomes its own collapsible `VALUE_TUPLE` clause. The tokenizer (`tokenizeSql`) is a hand-written regex scanner used for syntax highlighting.
 
+### Demo playground
+
+The dev-server app under `src/demo/` is a debugging workbench, not a landing page: a four-column layout (fixture library / source editor / component render / inspector). The source editor and the render area each own their own action bar — source-level actions (copy, compress, reset) live in `Playground.vue`; format-level actions come from the adapter. It is data-driven — `src/demo/Playground.vue` knows nothing about JSON/XML/SQL and consumes a `FormatAdapter` (`src/demo/types.ts`) from `src/demo/formats/<name>.ts`. Each adapter declares its fixtures (grouped `basic` / `edge` / `error`), toolbar actions, editable props, state probes (the component's exposed getters), listened emits, and filter spec. **Adding a format or a regression case = editing one adapter file**; do not add per-format UI to `Playground.vue`.
+
+`data-testid` convention: `<format>-action-<id>`, `<format>-fixture-<id>`, `<format>-prop-<key>`, `<format>-state-<key>`, `<format>-tab-<pane>`, `<format>-source`, `<format>-source-{copy,compress,reset}`, `<format>-validity`, plus the global `format-tab-<id>`, `theme-select`, `chrome-toggle`, `sidebar-toggle`, `inspector-toggle`.
+
 ### Build modes
 
 `vite.config.ts` switches behaviour based on `mode`:
-- Default (`npm run dev`): standard Vite SPA build for the demo app in `src/App.vue`.
+- Default (`npm run dev`): standard Vite SPA build for the demo playground in `src/demo/`.
 - `lib` mode (`npm run build:lib`): builds `ES` + `UMD` bundles and runs `vite-plugin-dts` to emit `.d.ts` files. `vue` is externalised.
 
 ## CI/CD

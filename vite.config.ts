@@ -29,8 +29,8 @@ export default defineConfig(({ mode }) => {
             outDir: 'dist',
             tsconfigPath: 'tsconfig.app.json',
             staticImport: true,
-            // 仅 demo 使用的 main.ts / App.vue 不进入产物
-            exclude: ['src/main.ts', 'src/App.vue'],
+            // 仅 demo 使用的 main.ts / demo 目录不进入产物
+            exclude: ['src/main.ts', 'src/demo/**'],
           })
         : undefined,
     ].filter(Boolean),
