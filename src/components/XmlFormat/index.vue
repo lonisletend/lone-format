@@ -495,9 +495,16 @@ const applyFilter = (config: FilterConfig) => {
         }
       })
       resultXml += '</result>'
-    } else {
+    } else if (nodes && typeof nodes === 'object') {
       // 单个节点
-      resultXml = serializer.serializeToString(nodes)
+      resultXml = serializer.serializeToString(nodes as Node)
+    } else {
+      // XPath 标量结果：count() / string() / boolean() 等
+      const scalar = String(nodes)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+      resultXml = `<result>${scalar}</result>`
     }
 
     // 重新解析为内部格式
@@ -576,7 +583,6 @@ const handleTagNameUpdate = (path: string, oldTag: string, newTag: string) => {
       const match = part.match(/^(.+?)\[(\d+)\]$/)
       
       if (match) {
-        const tag = match[1]
         const index = parseInt(match[2])
         
         if (i === pathParts.length - 1) {
@@ -634,7 +640,6 @@ const handleAttributeNameUpdate = (path: string, oldAttrName: string, newAttrNam
       const match = part.match(/^(.+?)\[(\d+)\]$/)
       
       if (match) {
-        const tag = match[1]
         const index = parseInt(match[2])
         
         if (i === pathParts.length - 1) {
@@ -684,7 +689,6 @@ const handleAttributeValueUpdate = (path: string, attrName: string, newValue: st
       const match = part.match(/^(.+?)\[(\d+)\]$/)
       
       if (match) {
-        const tag = match[1]
         const index = parseInt(match[2])
         
         if (i === pathParts.length - 1) {
@@ -734,7 +738,6 @@ const handleTextContentUpdate = (path: string, newContent: string) => {
       const match = part.match(/^(.+?)\[(\d+)\]$/)
       
       if (match) {
-        const tag = match[1]
         const index = parseInt(match[2])
         
         if (i === pathParts.length - 1) {
@@ -792,7 +795,6 @@ const handleCdataContentUpdate = (path: string, newContent: string) => {
       const match = part.match(/^(.+?)\[(\d+)\]$/)
       
       if (match) {
-        const tag = match[1]
         const index = parseInt(match[2])
         
         if (i === pathParts.length - 1) {

@@ -253,9 +253,9 @@ const compressSource = () => {
   }
 }
 
-// 获取解析后的 SQL (返回 null，因为不再解析子句)
-const getParsedSql = () => {
-  return null
+// 获取解析后的 SQL 子句
+const getParsedSql = (): SqlClause[] | null => {
+  return parsedClauses.value.length > 0 ? parsedClauses.value : null
 }
 
 // 获取解析错误
